@@ -5,6 +5,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { ProviderInfoStep } from '../components/onboarding/ProviderInfoStep';
 import { ConnectionTestStep } from '../components/onboarding/ConnectionTestStep';
 import { ConfirmStep } from '../components/onboarding/ConfirmStep';
+import { APP_NAME } from '../constants';
 
 export default function OnboardingPage() {
   const { t } = useTranslation();
@@ -18,7 +19,7 @@ export default function OnboardingPage() {
   return (
     <>
       <Helmet>
-        <title>{`${t('onboarding.meta.title')} | RelayPulse`}</title>
+        <title>{`${t('onboarding.meta.title')} | ${APP_NAME}`}</title>
         <meta name="description" content={t('onboarding.meta.description')} />
         <meta name="robots" content="noindex,nofollow" />
       </Helmet>

@@ -1,6 +1,9 @@
 import type { Provider, TimeRange, StatusConfig, TimeFilterPreset, CommunityItem } from '../types';
 import type { TFunction } from 'i18next';
 
+// 应用品牌名称
+export const APP_NAME = 'KunCodeRelayPulse';
+
 // 服务商列表
 export const PROVIDERS: Provider[] = [
   { id: '88code', name: '88code', services: ['cc', 'cx'] },

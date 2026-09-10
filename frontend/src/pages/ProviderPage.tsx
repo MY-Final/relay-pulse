@@ -13,7 +13,6 @@ import { StatusTable } from '../components/StatusTable';
 import { StatusCard } from '../components/StatusCard';
 import { vendorLabel } from '../components/VendorBadge';
 import { Tooltip } from '../components/Tooltip';
-import { Footer } from '../components/Footer';
 import { EmptyFavorites } from '../components/EmptyFavorites';
 import { useBreakpointMatch } from '../hooks/useBreakpoint';
 import { canonicalize } from '../utils/monitorDataProcessor';
@@ -671,8 +670,6 @@ export default function ProviderPage() {
           )}
         </main>
 
-        {/* 完整模式：显示 Footer */}
-        {!isEmbedMode && <Footer rpdiagEnabled={rpdiagEnabled} />}
         </div>
       </div>
     </>

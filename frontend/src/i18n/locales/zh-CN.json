@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "RelayPulse - 实时监测API中转服务可用性矩阵",
-    "description": "RelayPulse - 实时监测全球 LLM 中转服务的可用性、延迟与赞助链路，帮助开发者快速评估服务商质量，发现最稳定的 API 提供商。支持 Claude、GPT 等主流模型的连通性监测。"
+    "title": "KunCodeRelayPulse - 实时监测API中转服务可用性矩阵",
+    "description": "KunCodeRelayPulse - 实时监测全球 LLM 中转服务的可用性、延迟与赞助链路，帮助开发者快速评估服务商质量，发现最稳定的 API 提供商。支持 Claude、GPT 等主流模型的连通性监测。"
   },
   "common": {
     "loading": "正在同步数据节点...",
@@ -308,7 +308,7 @@
     "copyFailed": "复制失败，请手动复制链接"
   },
   "externalLink": {
-    "title": "即将离开 RelayPulse",
+    "title": "即将离开 KunCodeRelayPulse",
     "target": "目标网站",
     "thirdPartyNotice": "您即将访问的服务商由第三方独立运营。",
     "riskTip1": "本站监测数据仅代表技术连通性，不代表对商家信誉或资金安全的背书。",
@@ -351,7 +351,7 @@
   "onboarding": {
     "meta": {
       "title": "申请收录",
-      "description": "提交您的 API 服务到 RelayPulse 监测平台"
+      "description": "提交您的 API 服务到 KunCodeRelayPulse 监测平台"
     },
     "title": "申请收录",
     "description": "提交您的 API 服务信息，通过连通性测试后即可申请收录",
@@ -498,14 +498,14 @@
   },
   "contact": {
     "meta": {
-      "title": "联系我们 | RelayPulse",
+      "title": "联系我们 | KunCodeRelayPulse",
       "description": "申请收录、变更通道配置或提交反馈"
     },
     "title": "联系我们",
     "description": "选择您需要的服务，我们将为您提供帮助",
     "apply": {
       "title": "申请收录",
-      "description": "提交新的 API 服务到 RelayPulse 监测平台"
+      "description": "提交新的 API 服务到 KunCodeRelayPulse 监测平台"
     },
     "change": {
       "title": "申请变更",
@@ -526,7 +526,7 @@
   },
   "changeRequest": {
     "meta": {
-      "title": "申请变更 | RelayPulse",
+      "title": "申请变更 | KunCodeRelayPulse",
       "description": "修改已收录通道的配置信息"
     },
     "title": "申请变更",

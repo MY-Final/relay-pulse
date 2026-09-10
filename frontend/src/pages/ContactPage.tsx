@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ClipboardList, RefreshCw, MessageCircle, Users, MessageSquare, Activity } from 'lucide-react';
 import { LANGUAGE_PATH_MAP, type SupportedLanguage } from '../i18n';
+import { APP_NAME } from '../constants';
 
 function ContactCard({
   icon: Icon,
@@ -61,7 +62,7 @@ export default function ContactPage() {
             >
               <Activity className="w-5 h-5 text-accent" />
             </button>
-            <span className="text-lg font-bold text-gradient-hero">RelayPulse</span>
+            <span className="text-lg font-bold text-gradient-hero">{APP_NAME}</span>
           </div>
         </header>
 

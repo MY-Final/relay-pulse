@@ -14,7 +14,6 @@ import {
   StatusCardGrid,
 } from './components/home';
 import { Tooltip } from './components/Tooltip';
-import { Footer } from './components/Footer';
 import { EmptyFavorites } from './components/EmptyFavorites';
 import { AnnouncementsBanner } from './components/AnnouncementsBanner';
 import { useMonitorData } from './hooks/useMonitorData';
@@ -420,8 +419,6 @@ function App() {
             </>
           )}
 
-          {/* 免责声明 - 截图模式下隐藏 */}
-          {!isScreenshotMode && <Footer rpdiagEnabled={rpdiagEnabled} />}
         </div>
       </div>
     </>

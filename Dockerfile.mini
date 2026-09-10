@@ -1,0 +1,93 @@
+# syntax=docker/dockerfile:1.6
+
+# 适合中国网络环境的轻量多阶段镜像构建。
+# 构建时可通过 HTTP_PROXY/HTTPS_PROXY 传入局域网代理，Go 同时使用 goproxy.cn。
+
+FROM node:24-alpine AS frontend-builder
+
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG VITE_NOTIFIER_API_URL=https://notifier.relaypulse.top
+ARG VITE_HIDE_PRICE_COLUMN=
+
+ENV HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    NO_PROXY=${NO_PROXY} \
+    NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
+    VITE_NOTIFIER_API_URL=${VITE_NOTIFIER_API_URL} \
+    VITE_HIDE_PRICE_COLUMN=${VITE_HIDE_PRICE_COLUMN}
+
+WORKDIR /build/frontend
+COPY frontend/package*.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+FROM golang:1.25-alpine AS backend-builder
+
+ARG TARGETOS=linux
+ARG TARGETARCH
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+ENV HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    NO_PROXY=${NO_PROXY} \
+    GOPROXY=https://goproxy.cn,direct \
+    GOMODCACHE=/go/pkg/mod
+
+WORKDIR /build
+RUN apk add --no-cache ca-certificates git
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
+
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY templates/ ./templates/
+RUN mkdir -p ./internal/api/frontend/dist
+COPY --from=frontend-builder /build/frontend/dist/ ./internal/api/frontend/dist/
+
+RUN test -f ./internal/api/frontend/dist/index.html && \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -ldflags="-s -w -X monitor/internal/buildinfo.Version=${VERSION} -X monitor/internal/buildinfo.GitCommit=${GIT_COMMIT} -X 'monitor/internal/buildinfo.BuildTime=${BUILD_TIME}'" \
+    -o /out/monitor ./cmd/server
+
+FROM alpine:3.24
+
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+
+LABEL org.opencontainers.image.title="KunCodeRelayPulse" \
+      org.opencontainers.image.description="LLM relay service availability monitor" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_TIME}"
+
+WORKDIR /app
+RUN apk add --no-cache bash ca-certificates tzdata wget \
+    && mkdir -p /config /data
+
+COPY --from=backend-builder /out/monitor /app/monitor
+COPY config.yaml.example /app/config.yaml.default
+COPY templates/ /app/templates/
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENV TZ=Asia/Shanghai \
+    MONITOR_SQLITE_PATH=/data/monitor.db
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

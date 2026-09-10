@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 
 /**
  * react-helmet-async v3 起，`<title>` 只认**单个字符串子节点**。
- * 写成 `<title>{t('x')} | RelayPulse</title>` 时 children 是数组，v3 会静默渲染成
+ * 写成 `<title>{t('x')} | KunCodeRelayPulse</title>` 时 children 是数组，v3 会静默渲染成
  * 空 `<title></title>`——页面照常渲染、控制台无报错，只有标签页标题空掉，
  * 2026-09-05 随 react-helmet-async 2→3 升级在 /contact/apply 与 /admin 上实际发生过。
  * 故这里静态锁死写法：title 的内容必须整体是一个表达式（模板字符串拼接）。

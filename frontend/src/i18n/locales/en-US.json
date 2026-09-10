@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "RelayPulse - Real-time availability matrix for API relay services",
-    "description": "RelayPulse - Real-time monitoring of LLM relay services worldwide for availability, latency, and sponsored routes, helping developers quickly evaluate provider quality and discover the most stable API providers. Supports connectivity checks for mainstream models such as Claude and GPT."
+    "title": "KunCodeRelayPulse - Real-time availability matrix for API relay services",
+    "description": "KunCodeRelayPulse - Real-time monitoring of LLM relay services worldwide for availability, latency, and sponsored routes, helping developers quickly evaluate provider quality and discover the most stable API providers. Supports connectivity checks for mainstream models such as Claude and GPT."
   },
   "common": {
     "loading": "Syncing data nodes...",
@@ -308,7 +308,7 @@
     "copyFailed": "Failed to copy, please copy the link manually"
   },
   "externalLink": {
-    "title": "Leaving RelayPulse",
+    "title": "Leaving KunCodeRelayPulse",
     "target": "Target website",
     "thirdPartyNotice": "The service provider you are about to visit is operated independently by a third party.",
     "riskTip1": "Our monitoring data only represents technical connectivity, not an endorsement of merchant credibility or financial security.",
@@ -351,7 +351,7 @@
   "onboarding": {
     "meta": {
       "title": "Apply for Listing",
-      "description": "Submit your API service to RelayPulse monitoring platform"
+      "description": "Submit your API service to KunCodeRelayPulse monitoring platform"
     },
     "title": "Apply for Listing",
     "description": "Submit your API service info and pass the connectivity test to apply",
@@ -498,14 +498,14 @@
   },
   "contact": {
     "meta": {
-      "title": "Contact Us | RelayPulse",
+      "title": "Contact Us | KunCodeRelayPulse",
       "description": "Apply for listing, request changes, or submit feedback"
     },
     "title": "Contact Us",
     "description": "Choose the service you need, and we'll help you",
     "apply": {
       "title": "Apply for Listing",
-      "description": "Submit a new API service to the RelayPulse monitoring platform"
+      "description": "Submit a new API service to the KunCodeRelayPulse monitoring platform"
     },
     "change": {
       "title": "Request Changes",
@@ -526,7 +526,7 @@
   },
   "changeRequest": {
     "meta": {
-      "title": "Request Changes | RelayPulse",
+      "title": "Request Changes | KunCodeRelayPulse",
       "description": "Modify the configuration of an already-listed channel"
     },
     "title": "Request Changes",

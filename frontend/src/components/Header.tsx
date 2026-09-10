@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, CheckCircle, AlertTriangle, Sparkles, Share2, Filter } from 'lucide-react';
+import { Activity, CheckCircle, AlertTriangle, Share2, Filter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -9,6 +9,7 @@ import { useToast } from './Toast';
 import { shareCurrentPage } from '../utils/share';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { RefreshButton } from './RefreshButton';
+import { APP_NAME } from '../constants';
 
 interface HeaderProps {
   stats: {
@@ -109,7 +110,7 @@ export function Header({ stats, onFilterClick, onRefresh, loading, refreshCooldo
             </div>
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-gradient-hero">
-                RelayPulse
+                {APP_NAME}
               </h1>
               {/* 桌面端 Tagline - 作为副标题 */}
               <p className="hidden lg:block text-secondary text-xs mt-0.5">
@@ -251,18 +252,6 @@ export function Header({ stats, onFilterClick, onRefresh, loading, refreshCooldo
             <Share2 size={16} />
           </button>
 
-          {/* 联系我们按钮 → 联系页面 */}
-          <button
-            onClick={() => {
-              const langPath = LANGUAGE_PATH_MAP[currentLang];
-              navigate(langPath ? `/${langPath}/contact` : '/contact');
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-accent/40 bg-accent/10 text-accent font-semibold tracking-wide shadow-accent hover:bg-accent/20 transition focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:outline-none"
-          >
-            <Sparkles size={14} />
-            {t('header.contactBtn')}
-          </button>
-
           {/* 统计卡片 - 紧凑单行 */}
           <div className="flex gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface/50 border border-default"
@@ -321,17 +310,6 @@ export function Header({ stats, onFilterClick, onRefresh, loading, refreshCooldo
           {t('share.shareShort')}
         </button>
 
-        {/* 联系我们按钮 - 移动端紧凑版 */}
-        <button
-          onClick={() => {
-            const langPath = LANGUAGE_PATH_MAP[currentLang];
-            navigate(langPath ? `/${langPath}/contact` : '/contact');
-          }}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg border border-accent/40 bg-accent/10 text-accent text-xs font-medium shadow-accent hover:bg-accent/20 transition whitespace-nowrap focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:outline-none"
-        >
-          <Sparkles size={12} />
-          {t('header.contactBtnShort')}
-        </button>
       </div>
     </header>
   );

@@ -8,6 +8,7 @@ import { useChangeRequest, changeRequiresTest, type ChangeStep } from '../hooks/
 import type { AuthCandidate } from '../types/change';
 import { inputClass, selectClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/onboarding/controls';
 import { isProviderNameValid, isChannelNameValid } from '../utils/displayName';
+import { APP_NAME } from '../constants';
 
 /** 步骤指示器 */
 function StepIndicator({ current, requiresTest }: { current: ChangeStep; requiresTest: boolean }) {
@@ -547,7 +548,7 @@ export default function ChangeRequestPage() {
             >
               <Activity className="w-5 h-5 text-accent" />
             </button>
-            <span className="text-lg font-bold text-gradient-hero">RelayPulse</span>
+            <span className="text-lg font-bold text-gradient-hero">{APP_NAME}</span>
           </div>
         </header>
 

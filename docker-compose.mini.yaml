@@ -1,0 +1,35 @@
+services:
+  relay-pulse:
+    build:
+      context: .
+      dockerfile: Dockerfile.mini
+      args:
+        HTTP_PROXY: ${BUILD_HTTP_PROXY:-http://192.168.2.15:7890}
+        HTTPS_PROXY: ${BUILD_HTTPS_PROXY:-http://192.168.2.15:7890}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
+        VERSION: ${MONITOR_VERSION:-dev}
+        GIT_COMMIT: ${MONITOR_GIT_COMMIT:-unknown}
+        BUILD_TIME: ${MONITOR_BUILD_TIME:-unknown}
+    image: relay-pulse:mini
+    container_name: relaypulse-mini
+    ports:
+      - "6789:8080"
+    volumes:
+      - ./config:/config
+      - relay-pulse-mini-data:/data
+    environment:
+      TZ: Asia/Shanghai
+      MONITOR_SQLITE_PATH: /data/monitor.db
+      HTTP_PROXY: ${RUNTIME_HTTP_PROXY:-http://192.168.2.15:7890}
+      HTTPS_PROXY: ${RUNTIME_HTTPS_PROXY:-http://192.168.2.15:7890}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  relay-pulse-mini-data:

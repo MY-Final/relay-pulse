@@ -12,6 +12,7 @@ import { MonitorList } from '../components/admin/MonitorList';
 import { MonitorDetail } from '../components/admin/MonitorDetail';
 import { MonitorForm } from '../components/admin/MonitorForm';
 import { ChangeRequestList } from '../components/admin/ChangeRequestList';
+import { APP_NAME } from '../constants';
 
 type AdminTab = 'submissions' | 'monitors' | 'changes';
 
@@ -49,7 +50,7 @@ export default function AdminPage() {
   return (
     <>
       <Helmet>
-        <title>{`${t('admin.meta.title')} | RelayPulse`}</title>
+        <title>{`${t('admin.meta.title')} | ${APP_NAME}`}</title>
         <meta name="robots" content="noindex,nofollow" />
       </Helmet>
 
