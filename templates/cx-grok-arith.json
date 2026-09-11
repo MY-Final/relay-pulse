@@ -1,0 +1,35 @@
+{
+	"_comment": "xAI Grok 模型监测模板 (OpenAI 兼容 API)",
+	"self_serve_label": "Grok",
+	"model": "grok",
+	"request_model": "grok-beta",
+	"model_vendor": "xai",
+	"url": "{{BASE_URL}}/v1/chat/completions",
+	"method": "POST",
+	"headers": {
+		"Authorization": "Bearer {{API_KEY}}",
+		"Content-Type": "application/json"
+	},
+	"body": {
+		"model": "{{MODEL}}",
+		"messages": [
+			{
+				"role": "system",
+				"content": "You are a helpful assistant."
+			},
+			{
+				"role": "user",
+				"content": "{{PROMPT}}"
+			}
+		],
+		"stream": false
+	},
+	"response": {
+		"success_contains": "{{EXPECTED_ANSWER}}"
+	},
+	"probe": {
+		"slow_latency": "8s",
+		"timeout": "15s",
+		"retry": 1
+	}
+}
