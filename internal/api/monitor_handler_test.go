@@ -102,7 +102,7 @@ func TestAdminMonitorViewMasksAPIKey(t *testing.T) {
 	}
 	h := &Handler{adminKeyCipher: cipher}
 	view := h.adminMonitorView(&config.MonitorFile{Monitors: []config.ServiceConfig{{
-		Provider: "acme", Service: "cc", Channel: "vip", APIKeyEncrypted: secret,
+		Provider: "acme", Service: "cc", Channel: "vip", APIKey: "stale-plaintext", APIKeyEncrypted: secret,
 	}}})
 
 	data, err := json.Marshal(view)
@@ -116,6 +116,110 @@ func TestAdminMonitorViewMasksAPIKey(t *testing.T) {
 	monitor := view.Monitors[0]
 	if !monitor.APIKeyPresent || monitor.APIKeyMasked != "********1234" || monitor.APIKey != "" || monitor.APIKeyEncrypted != "" {
 		t.Fatalf("unexpected masked monitor view: %+v", monitor)
+	}
+}
+
+func TestCopyMonitorSecretsReusesEncryptedKeysAndKeepsOverrides(t *testing.T) {
+	cipher, err := apikey.NewKeyCipher(strings.Repeat("ab", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootKey, err := cipher.Encrypt("root-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	childKey, err := cipher.Encrypt("child-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	source := &config.MonitorFile{Monitors: []config.ServiceConfig{
+		{Provider: "acme", Service: "cx", Channel: "source", APIKey: "stale-root-secret", APIKeyEncrypted: rootKey, Proxy: "socks5://127.0.0.1:1080"},
+		{Parent: "acme/cx/source", Model: "terra", APIKeyEncrypted: childKey},
+	}}
+	target := &config.MonitorFile{Monitors: []config.ServiceConfig{
+		{Provider: "acme", Service: "cx", Channel: "copy"},
+		{Parent: "acme/cx/copy", Model: "terra"},
+	}}
+
+	copyMonitorSecrets(target, source)
+	if target.Monitors[0].APIKeyEncrypted != rootKey {
+		t.Fatalf("root encrypted key was not reused: %q", target.Monitors[0].APIKeyEncrypted)
+	}
+	if target.Monitors[0].APIKey != "" {
+		t.Fatalf("encrypted source should not copy legacy plaintext: %q", target.Monitors[0].APIKey)
+	}
+	if target.Monitors[0].Proxy != source.Monitors[0].Proxy {
+		t.Fatalf("legacy proxy was not reused: %q", target.Monitors[0].Proxy)
+	}
+	if target.Monitors[1].APIKeyEncrypted != childKey {
+		t.Fatalf("child encrypted key was not reused: %q", target.Monitors[1].APIKeyEncrypted)
+	}
+
+	target.Monitors[0].APIKey = "new-root-secret"
+	target.Monitors[0].APIKeyEncrypted = ""
+	target.Monitors[0].Proxy = ""
+	target.Monitors[0].ProxyProfile = "japan"
+	copyMonitorSecrets(target, source)
+	if target.Monitors[0].APIKey != "new-root-secret" || target.Monitors[0].APIKeyEncrypted != "" {
+		t.Fatalf("explicit new root key was overwritten: %+v", target.Monitors[0])
+	}
+	if target.Monitors[0].Proxy != "" {
+		t.Fatalf("selected proxy profile should win over copied legacy proxy: %q", target.Monitors[0].Proxy)
+	}
+}
+
+func TestAdminCreateMonitorCopiesKeyServerSide(t *testing.T) {
+	configDir := t.TempDir()
+	monitorsDir := filepath.Join(configDir, config.MonitorsDirName)
+	if err := os.MkdirAll(monitorsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	store := config.NewMonitorStore(monitorsDir)
+	cipher, err := apikey.NewKeyCipher(strings.Repeat("cd", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.SetKeyCipher(cipher)
+	h := &Handler{
+		config:         &config.AppConfig{Onboarding: config.OnboardingConfig{AdminToken: "test-token"}},
+		monitorStore:   store,
+		adminKeyCipher: cipher,
+	}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/api/admin/monitors", h.AdminCreateMonitor)
+
+	post := func(body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, "/api/admin/monitors", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	if w := post(`{"monitors":[{"provider":"acme","service":"cc","channel":"source","api_key":"copy-source-secret"}]}`); w.Code != http.StatusCreated {
+		t.Fatalf("source create status = %d, body = %s", w.Code, w.Body.String())
+	}
+	w := post(`{"copy_from":"acme--cc--source","monitors":[{"provider":"acme","service":"cc","channel":"copy"}]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("copy create status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	created, err := store.Get("acme--cc--copy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created == nil || created.Monitors[0].APIKey != "" || created.Monitors[0].APIKeyEncrypted == "" {
+		t.Fatalf("copy should persist encrypted key only: %+v", created)
+	}
+	plain, err := cipher.Decrypt(created.Monitors[0].APIKeyEncrypted)
+	if err != nil || plain != "copy-source-secret" {
+		t.Fatalf("copied key mismatch: plain=%q err=%v", plain, err)
+	}
+	if strings.Contains(w.Body.String(), "copy-source-secret") {
+		t.Fatalf("copy response leaked source key: %s", w.Body.String())
 	}
 }
 

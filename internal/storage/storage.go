@@ -314,6 +314,23 @@ type RetentionStorage interface {
 	PurgeOldRecords(ctx context.Context, before time.Time, batchSize int) (deleted int64, err error)
 }
 
+// MonitorResetOptions 描述管理员对单个监测通道执行的重置范围。
+// Provider/Service/Channel 定位当前通道，ModelIDs 用于覆盖通道改名后仍连续的历史记录。
+type MonitorResetOptions struct {
+	Provider     string
+	Service      string
+	Channel      string
+	ModelIDs     []string
+	ClearHistory bool
+}
+
+// MonitorResetStorage 是管理员通道重置的可选能力。
+// 单独定义而不并入 Storage，避免破坏外部测试替身和第三方存储实现；
+// 当前 SQLite/PostgreSQL 实现均提供该能力。
+type MonitorResetStorage interface {
+	ResetMonitor(options MonitorResetOptions) (deletedRecords int64, err error)
+}
+
 // MigrationStorage 数据迁移操作（一次性/运维场景）
 type MigrationStorage interface {
 	// MigrateChannelData 将 channel 为空的历史记录迁移到最新配置

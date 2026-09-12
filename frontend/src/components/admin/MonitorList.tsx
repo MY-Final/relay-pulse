@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CopyPlus } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { LatestProbeSnapshot, MonitorSummary } from '../../types/monitor';
 
@@ -14,6 +16,7 @@ interface MonitorListProps {
   setSearchQuery: (v: string) => void;
   onSelect: (key: string) => void;
   onRefresh: () => void;
+  onDuplicate: (key: string) => Promise<void>;
 }
 
 export function MonitorList({
@@ -21,9 +24,19 @@ export function MonitorList({
   boardFilter, setBoardFilter,
   statusFilter, setStatusFilter,
   searchQuery, setSearchQuery,
-  onSelect, onRefresh,
+  onSelect, onRefresh, onDuplicate,
 }: MonitorListProps) {
   const { t } = useTranslation();
+  const [duplicatingKey, setDuplicatingKey] = useState<string | null>(null);
+
+  const handleDuplicate = async (key: string) => {
+    setDuplicatingKey(key);
+    try {
+      await onDuplicate(key);
+    } finally {
+      setDuplicatingKey(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -92,6 +105,7 @@ export function MonitorList({
                 <th className="py-2 px-3">{t('admin.monitors.colBoard')}</th>
                 <th className="py-2 px-3">{t('admin.monitors.colStatus')}</th>
                 <th className="py-2 px-3">{t('admin.monitors.colSource')}</th>
+                <th className="py-2 px-3 text-right">{t('admin.monitors.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -125,6 +139,19 @@ export function MonitorList({
                     <StatusBadge disabled={m.disabled} hidden={m.hidden} />
                   </td>
                   <td className="py-2.5 px-3 text-muted text-xs">{m.source}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void handleDuplicate(m.key); }}
+                      disabled={duplicatingKey !== null}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 px-2.5 py-1 text-xs text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                      title={t('admin.monitors.duplicate')}
+                      aria-label={t('admin.monitors.duplicate')}
+                    >
+                      <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                      {duplicatingKey === m.key ? t('admin.monitors.duplicating') : t('admin.monitors.duplicate')}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

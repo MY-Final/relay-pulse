@@ -1,7 +1,7 @@
 import { useEffect, useState, type InputHTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
-import type { MonitorConfig, MonitorFile, ProbeHistoryEntry, ProbeTarget } from '../../types/monitor';
+import { CopyPlus, RotateCcw, X } from 'lucide-react';
+import type { MonitorConfig, MonitorFile, MonitorResetScope, ProbeHistoryEntry, ProbeTarget } from '../../types/monitor';
 import type { ProxyProfile } from '../../types/proxy';
 import type { ProbeResult } from '../../hooks/useMonitorAdmin';
 import { PARENT_TARGET_KEY } from '../../hooks/useMonitorAdmin';
@@ -26,6 +26,8 @@ interface MonitorDetailProps {
   monitorFile: MonitorFile;
   monitorKey: string;
   onBack: () => void;
+  onDuplicate: (file: MonitorFile, key: string) => void;
+  onReset: (scope: MonitorResetScope) => Promise<number>;
   onSave: (file: MonitorFile, revision: number) => Promise<void>;
   onDelete: () => void;
   onToggle: (field: 'disabled' | 'hidden', value: boolean) => void;
@@ -69,7 +71,7 @@ interface SelectOption {
 
 export function MonitorDetail({
   fetchTemplates, proxyProfiles, monitorFile, monitorKey, onBack,
-  onSave, onDelete, onToggle, onProbe, fetchLogs,
+  onDuplicate, onReset, onSave, onDelete, onToggle, onProbe, fetchLogs,
   probeTargets = [], probingTargets = {}, probeResults = {}, probeErrors = {},
 }: MonitorDetailProps) {
   const { t } = useTranslation();
@@ -83,6 +85,11 @@ export function MonitorDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetScope, setResetScope] = useState<MonitorResetScope>('state');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
 
@@ -318,6 +325,22 @@ export function MonitorDetail({
     }
   };
 
+  const handleReset = async () => {
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      const deletedRecords = await onReset(resetScope);
+      setShowResetDialog(false);
+      setResetMessage(resetScope === 'history'
+        ? t('admin.monitors.resetSuccessHistory', { count: deletedRecords })
+        : t('admin.monitors.resetSuccessState'));
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const updateField = <K extends keyof EditableFields>(key: K, value: EditableFields[K]) => {
     setEditFields(prev => ({ ...prev, [key]: value }));
   };
@@ -337,10 +360,32 @@ export function MonitorDetail({
         </div>
       </div>
 
-      {/* 标题 */}
-      <h2 className="text-xl font-bold text-primary">
-        {root?.provider}/{root?.service}/{root?.channel}
-      </h2>
+      {/* 标题与通道级快捷操作 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-primary">
+          {root?.provider}/{root?.service}/{root?.channel}
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onDuplicate(monitorFile, monitorKey)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 text-accent text-xs font-medium hover:bg-accent/10 transition"
+            title={t('admin.monitors.duplicate')}
+          >
+            <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('admin.monitors.duplicate')}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setResetError(null); setShowResetDialog(true); }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-warning/30 text-warning text-xs font-medium hover:bg-warning/10 transition"
+            title={t('admin.monitors.reset')}
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('admin.monitors.reset')}
+          </button>
+        </div>
+      </div>
 
       {/* Tab 导航 */}
       <nav className="flex gap-1 border-b border-default">
@@ -368,6 +413,11 @@ export function MonitorDetail({
       {saveError && (
         <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
           {saveError}
+        </div>
+      )}
+      {resetMessage && (
+        <div className="p-3 bg-success/10 border border-success/20 rounded-lg text-success text-sm">
+          {resetMessage}
         </div>
       )}
 
@@ -807,6 +857,90 @@ export function MonitorDetail({
 
       {!templateDirty && <ProbeResultDetail result={parentResult} />}
       </>
+      )}
+
+      {showResetDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="presentation">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="monitor-reset-title"
+            className="w-full max-w-lg rounded-lg border border-default bg-surface p-5 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="monitor-reset-title" className="text-base font-semibold text-primary">
+                  {t('admin.monitors.resetTitle')}
+                </h3>
+                <p className="mt-1 text-xs text-muted">{t('admin.monitors.resetHint')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowResetDialog(false)}
+                className="text-muted hover:text-primary transition"
+                title={t('admin.detail.cancel')}
+                aria-label={t('admin.detail.cancel')}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <label className="flex cursor-pointer gap-3 rounded-lg border border-default p-3 hover:bg-elevated/50">
+                <input
+                  type="radio"
+                  name="monitor-reset-scope"
+                  value="state"
+                  checked={resetScope === 'state'}
+                  onChange={() => setResetScope('state')}
+                  className="mt-0.5 accent-accent"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-primary">{t('admin.monitors.resetState')}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{t('admin.monitors.resetStateHint')}</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer gap-3 rounded-lg border border-danger/30 p-3 hover:bg-danger/5">
+                <input
+                  type="radio"
+                  name="monitor-reset-scope"
+                  value="history"
+                  checked={resetScope === 'history'}
+                  onChange={() => setResetScope('history')}
+                  className="mt-0.5 accent-danger"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-danger">{t('admin.monitors.resetHistory')}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{t('admin.monitors.resetHistoryHint')}</span>
+                </span>
+              </label>
+            </div>
+
+            {resetError && (
+              <p className="mt-3 rounded-lg bg-danger/10 p-3 text-sm text-danger">{resetError}</p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowResetDialog(false)}
+                className="px-3 py-1.5 rounded-lg border border-default text-secondary text-sm hover:text-primary transition"
+              >
+                {t('admin.detail.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isResetting}
+                className={`px-3 py-1.5 rounded-lg text-white text-sm font-medium transition disabled:opacity-50 ${
+                  resetScope === 'history' ? 'bg-danger hover:bg-danger/80' : 'bg-warning text-black hover:bg-warning/80'
+                }`}
+              >
+                {isResetting ? t('admin.monitors.resetting') : t('admin.monitors.confirmReset')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

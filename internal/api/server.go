@@ -283,6 +283,7 @@ func NewServer(store storage.Storage, cfg *config.AppConfig, port string, autoMo
 	router.PUT("/api/admin/monitors/:key", handler.AdminUpdateMonitor)
 	router.DELETE("/api/admin/monitors/:key", handler.AdminDeleteMonitor)
 	router.POST("/api/admin/monitors/:key/toggle", handler.AdminToggleMonitor)
+	router.POST("/api/admin/monitors/:key/reset", handler.AdminResetMonitor)
 	router.POST("/api/admin/monitors/:key/probe", handler.AdminProbeMonitor)
 	router.GET("/api/admin/monitors/:key/logs", handler.AdminGetMonitorLogs)
 

@@ -670,6 +670,19 @@
       "probeTargetPending": "Target channel config is not active yet. Save and retry after hot-reload.",
       "viaProxy": "via proxy",
       "templateDirtyHint": "Save monitor before testing template changes (base_url / api_key can be overridden inline)",
+      "duplicate": "Duplicate channel",
+      "duplicating": "Loading config...",
+      "reset": "Reset status",
+      "resetTitle": "Reset channel status",
+      "resetHint": "Only this channel is affected. Configuration files are not changed.",
+      "resetState": "Reset current status only",
+      "resetStateHint": "Keep historical probes and charts; status will be rebuilt on the next probe.",
+      "resetHistory": "Start statistics from now",
+      "resetHistoryHint": "Delete this channel's probe history, status, and events. Other channels are not affected.",
+      "resetting": "Resetting...",
+      "confirmReset": "Confirm reset",
+      "resetSuccessState": "Current status reset. It will be rebuilt on the next probe.",
+      "resetSuccessHistory": "Deleted {{count}} historical records. Statistics will start from now.",
       "tabs": {
         "detail": "Detail",
         "logs": "Probe history"
@@ -737,6 +750,7 @@
       "colBoard": "Board",
       "colStatus": "Status",
       "colSource": "Source",
+      "colActions": "Actions",
       "latestProbe": {
         "none": "No probe records",
         "justNow": "just now",
@@ -780,6 +794,9 @@
       },
       "form": {
         "title": "New Monitor",
+        "duplicateTitle": "Duplicate Monitor Channel",
+        "duplicateHint": "Configuration is prefilled. Enter a new channel identifier. Leave API Key blank to reuse the original securely, or enter a new key to replace it.",
+        "duplicateKeyHint": "The original key {{key}} will be reused securely; it is never shown or sent to the browser.",
         "identity": "Identity",
         "probeConfig": "Probe Configuration",
         "attributes": "Attributes",

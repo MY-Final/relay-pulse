@@ -670,6 +670,19 @@
       "probeTargetPending": "目标通道配置尚未生效，请保存并等待热更新后重试",
       "viaProxy": "经代理",
       "templateDirtyHint": "修改模板需保存后再测试（base_url / api_key 可即时覆盖）",
+      "duplicate": "复制为新通道",
+      "duplicating": "读取配置中...",
+      "reset": "重置状态",
+      "resetTitle": "重置通道状态",
+      "resetHint": "只影响当前通道，不会修改配置文件。",
+      "resetState": "仅重置当前状态",
+      "resetStateHint": "保留历史探测记录和曲线；下次探测时重新建立状态。",
+      "resetHistory": "从现在重新统计",
+      "resetHistoryHint": "清除当前通道历史探测记录、状态和事件；其它通道不受影响。",
+      "resetting": "重置中...",
+      "confirmReset": "确认重置",
+      "resetSuccessState": "当前状态已重置，下次探测会重新建立状态。",
+      "resetSuccessHistory": "已清除当前通道的 {{count}} 条历史记录，将从现在重新统计。",
       "tabs": {
         "detail": "详情",
         "logs": "探测历史"
@@ -737,6 +750,7 @@
       "colBoard": "板块",
       "colStatus": "状态",
       "colSource": "来源",
+      "colActions": "操作",
       "latestProbe": {
         "none": "无探测记录",
         "justNow": "刚刚",
@@ -780,6 +794,9 @@
       },
       "form": {
         "title": "新建监测通道",
+        "duplicateTitle": "复制监测通道",
+        "duplicateHint": "配置已预填。请填写新的通道标识；留空 API Key 会安全复用原通道密钥，也可以输入新密钥覆盖。",
+        "duplicateKeyHint": "将安全复用原通道密钥 {{key}}，不会显示或发送到浏览器。",
         "identity": "身份标识",
         "probeConfig": "探测配置",
         "attributes": "业务属性",

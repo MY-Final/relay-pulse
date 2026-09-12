@@ -670,6 +670,19 @@
       "probeTargetPending": "対象チャンネルの設定はまだ有効ではありません。保存してホットリロード後に再試行してください。",
       "viaProxy": "プロキシ経由",
       "templateDirtyHint": "テンプレート変更を保存してからテストしてください（base_url / api_key はその場で上書き可）",
+      "duplicate": "新しいチャネルとして複製",
+      "duplicating": "設定を読み込み中...",
+      "reset": "状態をリセット",
+      "resetTitle": "チャネル状態をリセット",
+      "resetHint": "このチャネルだけが対象です。設定ファイルは変更しません。",
+      "resetState": "現在の状態だけをリセット",
+      "resetStateHint": "過去の探測履歴とグラフを保持し、次回の探測から状態を再構築します。",
+      "resetHistory": "今から統計をやり直す",
+      "resetHistoryHint": "このチャネルの探測履歴、状態、イベントを削除します。他のチャネルには影響しません。",
+      "resetting": "リセット中...",
+      "confirmReset": "リセットを確認",
+      "resetSuccessState": "現在の状態をリセットしました。次回の探測で再構築されます。",
+      "resetSuccessHistory": "履歴 {{count}} 件を削除しました。今から統計を再開します。",
       "tabs": {
         "detail": "詳細",
         "logs": "プローブ履歴"
@@ -737,6 +750,7 @@
       "colBoard": "ボード",
       "colStatus": "ステータス",
       "colSource": "ソース",
+      "colActions": "操作",
       "latestProbe": {
         "none": "プローブ記録なし",
         "justNow": "たった今",
@@ -780,6 +794,9 @@
       },
       "form": {
         "title": "新規モニター作成",
+        "duplicateTitle": "監視チャネルを複製",
+        "duplicateHint": "設定を引き継ぎました。新しいチャネル識別子を入力してください。API Key を空欄にすると元のキーを安全に再利用し、新しいキーを入力すると置き換えます。",
+        "duplicateKeyHint": "元のキー {{key}} を安全に再利用します。ブラウザに表示・送信されることはありません。",
         "identity": "識別情報",
         "probeConfig": "プローブ設定",
         "attributes": "属性",

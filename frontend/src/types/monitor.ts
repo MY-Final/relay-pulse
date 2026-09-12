@@ -47,6 +47,7 @@ export interface MonitorConfig {
   channel: string;
   channel_name?: string;
   model?: string;
+  model_id?: string;
   /** 模型厂商受控 code（internal/modelvendor）；native 族模板必须行级填，否则厂商列显示未知 */
   model_vendor?: string;
   parent?: string;
@@ -54,6 +55,7 @@ export interface MonitorConfig {
   base_url?: string;
   /** 写入接口专用；读取接口不会返回明文。 */
   api_key?: string;
+  api_key_encrypted?: string;
   api_key_present?: boolean;
   api_key_masked?: string;
   clear_api_key?: boolean;
@@ -120,6 +122,8 @@ export interface AdminMonitorDetailResponse {
   monitor: MonitorFile;
   probe_targets?: ProbeTarget[];
 }
+
+export type MonitorResetScope = 'state' | 'history';
 
 /** 单条探测历史记录（管理后台 logs tab 用） */
 export interface ProbeHistoryEntry {

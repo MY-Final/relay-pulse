@@ -8,6 +8,7 @@ import type {
   AdminMonitorLogsResponse,
   ProbeHistoryEntry,
   ProbeTarget,
+  MonitorResetScope,
 } from '../types/monitor';
 
 /** 父通道在按 target 分桶的 probe 状态里使用的固定 key。 */
@@ -150,8 +151,8 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
   }, [isAuthenticated, authHeaders]);
 
   // Fetch detail
-  const fetchDetail = useCallback(async (key: string) => {
-    if (!isAuthenticated) return;
+  const fetchDetail = useCallback(async (key: string): Promise<MonitorFile | null> => {
+    if (!isAuthenticated) return null;
     detailAbortRef.current?.abort(); // 中止上一条在途详情，防止迟到响应覆盖新选中项
     const ac = new AbortController();
     detailAbortRef.current = ac;
@@ -163,7 +164,7 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
         `/api/admin/monitors/${key}`,
         { headers: authHeaders(), signal: ac.signal },
       );
-      if (ac.signal.aborted) return;
+      if (ac.signal.aborted) return null;
       // 详情成功返回后再清空上一通道的 probe 结果，避免串台；被取消的旧请求不清，
       // 让当前显示的通道保留其探测结果直到新详情真正就绪。
       setProbingTargets({});
@@ -172,9 +173,11 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
       setSelectedMonitor(resp.monitor);
       setProbeTargets(resp.probe_targets || []);
       setSelectedKey(key);
+      return resp.monitor;
     } catch (e) {
-      if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
+      if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return null;
       setError(e instanceof ApiError ? e.message : '加载详情失败');
+      return null;
     } finally {
       if (detailAbortRef.current === ac) setDetailLoadingId(null);
     }
@@ -188,14 +191,14 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
   }, []);
 
   // Create
-  const createMonitor = useCallback(async (file: MonitorFile) => {
+  const createMonitor = useCallback(async (file: MonitorFile, copyFrom?: string) => {
     if (!isAuthenticated) return;
     setError(null);
 
     try {
       await apiPost<AdminMonitorDetailResponse>(
         '/api/admin/monitors',
-        file,
+        copyFrom ? { ...file, copy_from: copyFrom } : file,
         { headers: authHeaders() },
       );
       fetchListRef.current();
@@ -260,6 +263,26 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
       setError(e instanceof ApiError ? e.message : '切换失败');
     }
   }, [isAuthenticated, authHeaders]);
+
+  const resetMonitor = useCallback(async (key: string, scope: MonitorResetScope): Promise<number> => {
+    if (!isAuthenticated) return 0;
+    setError(null);
+
+    try {
+      const resp = await apiPost<{ deleted_records?: number }>(
+        `/api/admin/monitors/${encodeURIComponent(key)}/reset`,
+        { scope },
+        { headers: authHeaders() },
+      );
+      fetchListRef.current();
+      await fetchDetail(key);
+      return resp.deleted_records ?? 0;
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : '重置失败';
+      setError(msg);
+      throw e;
+    }
+  }, [isAuthenticated, authHeaders, fetchDetail]);
 
   const probeMonitor = useCallback(async (
     key: string,
@@ -361,6 +384,7 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
     updateMonitor,
     deleteMonitor,
     toggleMonitor,
+    resetMonitor,
     probeMonitor,
     probingTargets,
     probeResults,

@@ -257,6 +257,24 @@ func (s *Service) SetOverrides(overrides map[storage.MonitorKey]MonitorOverride)
 	}
 }
 
+// ResetMonitor 清除指定通道的内存 override，并异步同步到持久化存储。
+// 管理员重置状态时调用，避免旧的自动移板结果在下一次配置读取前继续生效。
+func (s *Service) ResetMonitor(provider, service, channel string) {
+	current := s.currentOverrides()
+	if len(current) == 0 {
+		return
+	}
+
+	filtered := make(map[storage.MonitorKey]MonitorOverride, len(current))
+	for key, override := range current {
+		if key.Provider == provider && key.Service == service && key.Channel == channel {
+			continue
+		}
+		filtered[key] = override
+	}
+	s.replaceOverrides(filtered)
+}
+
 // SetOnOverrideChange 设置 override 变更回调。
 // 回调异步触发，用于通知 scheduler/events 等运行时依赖刷新状态。
 func (s *Service) SetOnOverrideChange(fn func()) {

@@ -283,11 +283,15 @@ func (h *Handler) adminMonitorView(file *config.MonitorFile) config.MonitorFile 
 		if strings.TrimSpace(proxyURL) != "" {
 			monitor.ProxyMasked = maskProxyProfileURL(proxyURL)
 		}
-		secret := monitor.APIKey
-		if secret == "" && monitor.APIKeyEncrypted != "" && h.adminKeyCipher != nil {
-			if decrypted, err := h.adminKeyCipher.Decrypt(monitor.APIKeyEncrypted); err == nil {
-				secret = decrypted
+		secret := ""
+		if monitor.APIKeyEncrypted != "" {
+			if h.adminKeyCipher != nil {
+				if decrypted, err := h.adminKeyCipher.Decrypt(monitor.APIKeyEncrypted); err == nil {
+					secret = decrypted
+				}
 			}
+		} else {
+			secret = monitor.APIKey
 		}
 		monitor.APIKeyPresent = monitor.APIKey != "" || monitor.APIKeyEncrypted != "" || secret != ""
 		monitor.APIKeyMasked = maskAdminAPIKey(secret)
@@ -314,8 +318,10 @@ func maskAdminAPIKey(value string) string {
 	return "********" + value[len(value)-4:]
 }
 
-// AdminCreateMonitor 创建新监测项
+// AdminCreateMonitor 创建新监测项。
 // POST /api/admin/monitors
+// copy_from 可选：从已有 monitor file 安全复用 API Key 和旧版直填代理，
+// 密文只在服务端文件之间流转，不会进入浏览器或请求体。
 func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 	if !h.checkAdminToken(c) {
 		return
@@ -327,11 +333,16 @@ func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 		return
 	}
 
-	var file config.MonitorFile
-	if err := c.ShouldBindJSON(&file); err != nil {
+	var req struct {
+		Metadata config.MonitorFileMetadata `json:"metadata"`
+		Monitors []config.ServiceConfig     `json:"monitors"`
+		CopyFrom string                     `json:"copy_from,omitempty"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "请求参数无效")
 		return
 	}
+	file := config.MonitorFile{Metadata: req.Metadata, Monitors: req.Monitors}
 
 	if len(file.Monitors) == 0 {
 		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "monitors 不能为空")
@@ -340,6 +351,19 @@ func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 	if err := h.validateMonitorProxyProfiles(file.Monitors); err != nil {
 		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, err.Error())
 		return
+	}
+
+	if strings.TrimSpace(req.CopyFrom) != "" {
+		source, err := store.Get(req.CopyFrom)
+		if err != nil {
+			apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "复制来源无效")
+			return
+		}
+		if source == nil {
+			apiError(c, http.StatusNotFound, ErrCodeNotFound, "复制来源不存在")
+			return
+		}
+		copyMonitorSecrets(&file, source)
 	}
 
 	// 验证基本字段
@@ -383,6 +407,75 @@ func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"monitor": h.adminMonitorView(&file),
 	})
+}
+
+// copyMonitorSecrets 在服务端为复制创建请求补齐原通道的敏感运行配置。
+// API Key 优先复用密文；历史明文配置则交给 MonitorStore.Create 在写盘时按当前
+// 加密器转换。目标行已有新 Key 时保留新值，方便复制后直接替换号池。
+func copyMonitorSecrets(dst, src *config.MonitorFile) {
+	if dst == nil || src == nil {
+		return
+	}
+	dstRoot := findRawRoot(dst.Monitors)
+	srcRoot := findRawRoot(src.Monitors)
+	if dstRoot == nil || srcRoot == nil {
+		return
+	}
+	copyMonitorSecretFields(dstRoot, srcRoot)
+
+	srcChildren := make([]*config.ServiceConfig, 0)
+	for i := range src.Monitors {
+		if strings.TrimSpace(src.Monitors[i].Parent) != "" {
+			srcChildren = append(srcChildren, &src.Monitors[i])
+		}
+	}
+	used := make([]bool, len(srcChildren))
+	for i := range dst.Monitors {
+		if strings.TrimSpace(dst.Monitors[i].Parent) == "" {
+			continue
+		}
+		match := -1
+		// 复制表单默认保持子通道顺序；有模型名时优先按模型匹配，
+		// 避免用户在复制时增删子通道后密钥错配。
+		if model := strings.TrimSpace(dst.Monitors[i].Model); model != "" {
+			for j, candidate := range srcChildren {
+				if !used[j] && strings.TrimSpace(candidate.Model) == model {
+					match = j
+					break
+				}
+			}
+		}
+		if match < 0 {
+			for j := range srcChildren {
+				if !used[j] {
+					match = j
+					break
+				}
+			}
+		}
+		if match >= 0 {
+			used[match] = true
+			copyMonitorSecretFields(&dst.Monitors[i], srcChildren[match])
+		}
+	}
+}
+
+func copyMonitorSecretFields(dst, src *config.ServiceConfig) {
+	if dst == nil || src == nil {
+		return
+	}
+	if strings.TrimSpace(dst.APIKey) == "" && strings.TrimSpace(dst.APIKeyEncrypted) == "" && !dst.ClearAPIKey {
+		// 密文是运行时的最高优先级；即使历史文件误留明文，也不能让复制流程
+		// 用那份可能过期的明文覆盖密文。
+		if strings.TrimSpace(src.APIKeyEncrypted) != "" {
+			dst.APIKeyEncrypted = src.APIKeyEncrypted
+		} else {
+			dst.APIKey = src.APIKey
+		}
+	}
+	if strings.TrimSpace(dst.Proxy) == "" && strings.TrimSpace(dst.ProxyProfile) == "" && !dst.ClearProxy {
+		dst.Proxy = src.Proxy
+	}
 }
 
 // isDuplicateModelIDError 判定 store 写路径是否因 payload 内 model_id 重复被拒。
@@ -543,6 +636,87 @@ func (h *Handler) AdminToggleMonitor(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"monitor": h.adminMonitorView(file),
+	})
+}
+
+// AdminResetMonitor 重置单个监测通道的运行状态。
+// POST /api/admin/monitors/:key/reset
+// scope=state 只清理状态机/事件/自动移板运行态；scope=history 额外清空该通道历史探测记录。
+func (h *Handler) AdminResetMonitor(c *gin.Context) {
+	if !h.checkAdminToken(c) {
+		return
+	}
+
+	store := h.getMonitorStore()
+	if store == nil {
+		apiError(c, http.StatusServiceUnavailable, ErrCodeFeatureDisabled, "monitors.d 管理未启用")
+		return
+	}
+	if h.storage == nil {
+		apiError(c, http.StatusServiceUnavailable, ErrCodeFeatureDisabled, "存储未初始化")
+		return
+	}
+	resetter, ok := h.storage.WithContext(c.Request.Context()).(storage.MonitorResetStorage)
+	if !ok {
+		apiError(c, http.StatusServiceUnavailable, ErrCodeFeatureDisabled, "当前存储不支持通道重置")
+		return
+	}
+
+	var req struct {
+		Scope string `json:"scope" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || (req.Scope != "state" && req.Scope != "history") {
+		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "scope 只能是 state 或 history")
+		return
+	}
+
+	key := c.Param("key")
+	file, err := store.Get(key)
+	if err != nil {
+		logger.Error("admin", "获取重置目标失败", "key", key, "error", err)
+		apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "获取监测项失败")
+		return
+	}
+	if file == nil {
+		apiError(c, http.StatusNotFound, ErrCodeNotFound, "监测项不存在")
+		return
+	}
+	root := findRawRoot(file.Monitors)
+	if root == nil || strings.TrimSpace(root.Provider) == "" || strings.TrimSpace(root.Service) == "" || strings.TrimSpace(root.Channel) == "" {
+		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "找不到有效的父通道")
+		return
+	}
+
+	modelIDs := make([]string, 0, len(file.Monitors))
+	for _, monitor := range file.Monitors {
+		if modelID := strings.TrimSpace(monitor.ModelID); modelID != "" {
+			modelIDs = append(modelIDs, modelID)
+		}
+	}
+	deleted, err := resetter.ResetMonitor(storage.MonitorResetOptions{
+		Provider:     root.Provider,
+		Service:      root.Service,
+		Channel:      root.Channel,
+		ModelIDs:     modelIDs,
+		ClearHistory: req.Scope == "history",
+	})
+	if err != nil {
+		logger.Error("admin", "重置监测项失败", "key", key, "scope", req.Scope, "error", err)
+		apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "重置监测项失败")
+		return
+	}
+	if h.autoMover != nil {
+		h.autoMover.ResetMonitor(root.Provider, root.Service, root.Channel)
+	}
+
+	// /api/status 有短缓存；重置后立即清掉，避免前端看到旧统计。
+	if h.cache != nil {
+		h.cache.clear()
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"status":          "reset",
+		"scope":           req.Scope,
+		"deleted_records": deleted,
 	})
 }
 
@@ -711,7 +885,7 @@ func (h *Handler) AdminProbeMonitor(c *gin.Context) {
 // 正常运行路径由 Loader 在内存配置中解密；fallback 需要从 raw 文件补齐同一字段，
 // 但绝不把明文写回文件或返回给前端。
 func (h *Handler) decryptAdminMonitorAPIKey(cfg *config.ServiceConfig) error {
-	if cfg == nil || strings.TrimSpace(cfg.APIKey) != "" || strings.TrimSpace(cfg.APIKeyEncrypted) == "" {
+	if cfg == nil || strings.TrimSpace(cfg.APIKeyEncrypted) == "" {
 		return nil
 	}
 	if h.adminKeyCipher == nil {

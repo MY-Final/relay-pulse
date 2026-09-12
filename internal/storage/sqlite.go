@@ -1829,6 +1829,63 @@ func (s *SQLiteStorage) PurgeOldRecords(ctx context.Context, before time.Time, b
 	return affected, nil
 }
 
+// ResetMonitor 清理指定通道的状态机、事件和自动移板运行态；可选同时清理历史探测记录。
+// 所有操作在一个事务内完成，避免重置到一半时调度器看到不一致状态。
+func (s *SQLiteStorage) ResetMonitor(options MonitorResetOptions) (int64, error) {
+	provider := strings.TrimSpace(options.Provider)
+	service := strings.TrimSpace(options.Service)
+	channel := strings.TrimSpace(options.Channel)
+	if provider == "" || service == "" || channel == "" {
+		return 0, fmt.Errorf("重置通道参数不能为空")
+	}
+
+	tx, err := s.db.BeginTx(s.effectiveCtx(), nil)
+	if err != nil {
+		return 0, fmt.Errorf("开始重置通道事务失败: %w", err)
+	}
+	defer tx.Rollback()
+
+	pscArgs := []any{provider, service, channel}
+	for _, query := range []string{
+		`DELETE FROM service_states WHERE provider = ? AND service = ? AND channel = ?`,
+		`DELETE FROM channel_states WHERE provider = ? AND service = ? AND channel = ?`,
+		`DELETE FROM status_events WHERE provider = ? AND service = ? AND channel = ?`,
+		`DELETE FROM monitor_overrides WHERE provider = ? AND service = ? AND channel = ?`,
+	} {
+		if _, err := tx.ExecContext(s.effectiveCtx(), query, pscArgs...); err != nil {
+			return 0, fmt.Errorf("重置通道状态失败: %w", err)
+		}
+	}
+
+	var deletedRecords int64
+	if options.ClearHistory {
+		conditions := []string{"(provider = ? AND service = ? AND channel = ?)"}
+		args := append([]any(nil), pscArgs...)
+		if len(options.ModelIDs) > 0 {
+			placeholders := make([]string, len(options.ModelIDs))
+			for i, modelID := range options.ModelIDs {
+				placeholders[i] = "?"
+				args = append(args, modelID)
+			}
+			conditions = append(conditions, "model_id IN ("+strings.Join(placeholders, ",")+")")
+		}
+		result, err := tx.ExecContext(s.effectiveCtx(),
+			"DELETE FROM probe_history WHERE "+strings.Join(conditions, " OR "), args...)
+		if err != nil {
+			return 0, fmt.Errorf("清理通道历史记录失败: %w", err)
+		}
+		deletedRecords, err = result.RowsAffected()
+		if err != nil {
+			return 0, fmt.Errorf("获取清理历史记录数量失败: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("提交重置通道事务失败: %w", err)
+	}
+	return deletedRecords, nil
+}
+
 // ===== 自动移板 override 持久化 =====
 
 func (s *SQLiteStorage) initOverrideTables(ctx context.Context) error {

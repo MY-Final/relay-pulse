@@ -9,6 +9,8 @@ import type { ProxyProfile } from '../../types/proxy';
 interface MonitorFormProps {
   fetchTemplates: () => Promise<string[]>;
   proxyProfiles: ProxyProfile[];
+  /** 复制通道时传入脱敏后的原通道配置；密钥由服务端按 copy_from 安全复用。 */
+  initialFile?: MonitorFile | null;
   onSave: (file: MonitorFile) => Promise<void>;
   onCancel: () => void;
 }
@@ -48,10 +50,10 @@ const EMPTY_CONFIG: MonitorConfig = {
 
 const EMPTY_CHILD: ChildDraft = { model: '', model_vendor: '', template: '', base_url: '', api_key: '' };
 
-export function MonitorForm({ fetchTemplates, proxyProfiles, onSave, onCancel }: MonitorFormProps) {
+export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave, onCancel }: MonitorFormProps) {
   const { t } = useTranslation();
-  const [config, setConfig] = useState<MonitorConfig>({ ...EMPTY_CONFIG });
-  const [children, setChildren] = useState<ChildDraft[]>([]);
+  const [config, setConfig] = useState<MonitorConfig>(() => buildInitialConfig(initialFile));
+  const [children, setChildren] = useState<ChildDraft[]>(() => buildInitialChildren(initialFile));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<string[]>([]);
@@ -70,6 +72,7 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, onSave, onCancel }:
   }, [fetchTemplates]);
 
   const templateOptions = mergeTemplateNames(templates, config.template);
+  const sourceRoot = initialFile?.monitors.find(m => !m.parent) || initialFile?.monitors[0];
 
   const sponsorLevelOptions = [
     { value: '', label: t('admin.monitors.sponsorLevels.none') },
@@ -137,7 +140,14 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, onSave, onCancel }:
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-primary">{t('admin.monitors.form.title')}</h2>
+        <div>
+          <h2 className="text-xl font-bold text-primary">
+            {initialFile ? t('admin.monitors.form.duplicateTitle') : t('admin.monitors.form.title')}
+          </h2>
+          {initialFile && (
+            <p className="mt-1 text-xs text-muted">{t('admin.monitors.form.duplicateHint')}</p>
+          )}
+        </div>
         <button
           type="button"
           onClick={onCancel}
@@ -219,6 +229,11 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, onSave, onCancel }:
             onChange={v => updateField('api_key', v)}
             type="password"
           />
+          {initialFile && sourceRoot?.api_key_present && (
+            <p className="col-span-2 -mt-2 text-xs text-muted">
+              {t('admin.monitors.form.duplicateKeyHint', { key: sourceRoot.api_key_masked || '********' })}
+            </p>
+          )}
           <SelectField
             label={t('admin.monitors.field.proxyProfile')}
             value={config.proxy_profile || ''}
@@ -415,4 +430,34 @@ function mergeTemplateNames(names: string[], current?: string): string[] {
   const merged = new Set(names.filter(Boolean));
   if (current) merged.add(current);
   return Array.from(merged).sort();
+}
+
+function buildInitialConfig(file?: MonitorFile | null): MonitorConfig {
+  if (!file) return { ...EMPTY_CONFIG };
+  const root = file.monitors.find(m => !m.parent) || file.monitors[0];
+  if (!root) return { ...EMPTY_CONFIG };
+
+  const config = { ...root };
+  // 复制后的通道必须由服务端重新生成 model_id；详情接口本身已脱敏，这里再明确清一次密钥。
+  delete config.model_id;
+  delete config.api_key_encrypted;
+  delete config.api_key_present;
+  delete config.api_key_masked;
+  delete config.clear_api_key;
+  config.api_key = '';
+  config.channel = '';
+  return config;
+}
+
+function buildInitialChildren(file?: MonitorFile | null): ChildDraft[] {
+  if (!file) return [];
+  return file.monitors
+    .filter(m => !!m.parent)
+    .map(child => ({
+      model: child.model || '',
+      model_vendor: child.model_vendor || '',
+      template: child.template || '',
+      base_url: child.base_url || '',
+      api_key: '',
+    }));
 }

@@ -610,6 +610,90 @@ func TestPurgeOldRecords_BatchSize(t *testing.T) {
 	}
 }
 
+func TestResetMonitor(t *testing.T) {
+	store := newTestStore(t)
+	key := MonitorKey{Provider: "reset-p", Service: "cc", Channel: "pool-1", Model: "terra"}
+	modelID := "md_11111111-1111-4111-8111-111111111111"
+
+	first := rec(key, 1000)
+	first.ModelID = modelID
+	mustSave(t, store, first)
+	if err := store.UpsertServiceState(&ServiceState{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel, Model: key.Model,
+		StableAvailable: 0, StreakCount: 2, StreakStatus: 0, LastRecordID: first.ID, LastTimestamp: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("UpsertServiceState: %v", err)
+	}
+	if err := store.UpsertChannelState(&ChannelState{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		StableAvailable: 0, DownCount: 1, KnownCount: 1, LastRecordID: first.ID, LastTimestamp: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("UpsertChannelState: %v", err)
+	}
+	if err := store.SaveStatusEvent(&StatusEvent{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel, Model: key.Model,
+		EventType: EventTypeDown, FromStatus: 1, ToStatus: 0, TriggerRecordID: first.ID,
+		ObservedAt: first.Timestamp, CreatedAt: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("SaveStatusEvent: %v", err)
+	}
+	if err := store.ReplaceMonitorOverrides([]MonitorOverrideRecord{{
+		Key: key, Board: "secondary", ColdReason: "test", CreatedAt: 1, UpdatedAt: 1,
+	}}); err != nil {
+		t.Fatalf("ReplaceMonitorOverrides: %v", err)
+	}
+
+	deleted, err := store.ResetMonitor(MonitorResetOptions{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		ModelIDs: []string{modelID}, ClearHistory: false,
+	})
+	if err != nil {
+		t.Fatalf("ResetMonitor state: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("state-only reset deleted %d history records", deleted)
+	}
+	if state, err := store.GetServiceState(key.Provider, key.Service, key.Channel, key.Model); err != nil || state != nil {
+		t.Fatalf("service state after reset = %+v, err=%v", state, err)
+	}
+	if state, err := store.GetChannelState(key.Provider, key.Service, key.Channel); err != nil || state != nil {
+		t.Fatalf("channel state after reset = %+v, err=%v", state, err)
+	}
+	events, err := store.GetStatusEvents(0, 100, &EventFilters{Provider: key.Provider, Service: key.Service, Channel: key.Channel})
+	if err != nil || len(events) != 0 {
+		t.Fatalf("status events after reset = %d, err=%v", len(events), err)
+	}
+	overrides, err := store.ListMonitorOverrides()
+	if err != nil || len(overrides) != 0 {
+		t.Fatalf("overrides after reset = %d, err=%v", len(overrides), err)
+	}
+
+	// 同一 model_id 改过展示名的历史也应被清理；其它通道必须保留。
+	renamed := rec(MonitorKey{Provider: "old", Service: "cc", Channel: "renamed", Model: "legacy"}, 2000)
+	renamed.ModelID = modelID
+	mustSave(t, store, renamed)
+	other := rec(MonitorKey{Provider: "other", Service: "cc", Channel: "pool-2", Model: "terra"}, 3000)
+	other.ModelID = "md_22222222-2222-4222-8222-222222222222"
+	mustSave(t, store, other)
+
+	deleted, err = store.ResetMonitor(MonitorResetOptions{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		ModelIDs: []string{modelID}, ClearHistory: true,
+	})
+	if err != nil {
+		t.Fatalf("ResetMonitor history: %v", err)
+	}
+	if deleted != 2 {
+		t.Fatalf("history reset deleted %d records, want 2", deleted)
+	}
+	if latest, err := store.GetLatestByModelID(modelID); err != nil || latest != nil {
+		t.Fatalf("target latest after history reset = %+v, err=%v", latest, err)
+	}
+	if latest, err := store.GetLatestByModelID(other.ModelID); err != nil || latest == nil {
+		t.Fatalf("other channel history was deleted: %+v, err=%v", latest, err)
+	}
+}
+
 // --- Concurrent access ---
 
 func TestConcurrentReadWrite(t *testing.T) {

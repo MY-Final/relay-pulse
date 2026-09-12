@@ -10,6 +10,7 @@ import { MonitorDetail } from '../components/admin/MonitorDetail';
 import { MonitorForm } from '../components/admin/MonitorForm';
 import { ProxyProfiles } from '../components/admin/ProxyProfiles';
 import { useProxyAdmin } from '../hooks/useProxyAdmin';
+import type { MonitorFile } from '../types/monitor';
 import { APP_NAME } from '../constants';
 
 type AdminTab = 'monitors' | 'proxies';
@@ -18,6 +19,8 @@ export default function AdminPage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<AdminTab>('monitors');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<MonitorFile | null>(null);
+  const [duplicateSourceKey, setDuplicateSourceKey] = useState<string | null>(null);
 
   const {
     isAuthenticated, isCheckingAuth, login, logout,
@@ -31,6 +34,8 @@ export default function AdminPage() {
     monitor.cancelDetail();
     setActiveTab(tab);
     setShowCreateForm(false);
+    setDuplicateSource(null);
+    setDuplicateSourceKey(null);
     monitor.setSelectedMonitor(null);
     monitor.setSelectedKey(null);
   };
@@ -91,11 +96,20 @@ export default function AdminPage() {
                   <MonitorForm
                     fetchTemplates={monitor.fetchTemplates}
                     proxyProfiles={proxyAdmin.proxies}
+                    initialFile={duplicateSource}
                     onSave={async (file) => {
-                      await monitor.createMonitor(file);
+                      await monitor.createMonitor(file, duplicateSourceKey || undefined);
                       setShowCreateForm(false);
+                      setDuplicateSource(null);
+                      setDuplicateSourceKey(null);
+                      monitor.setSelectedMonitor(null);
+                      monitor.setSelectedKey(null);
                     }}
-                    onCancel={() => setShowCreateForm(false)}
+                    onCancel={() => {
+                      setShowCreateForm(false);
+                      setDuplicateSource(null);
+                      setDuplicateSourceKey(null);
+                    }}
                   />
                 ) : monitor.detailLoadingId && !monitor.selectedMonitor ? (
                   <DetailLoading />
@@ -118,6 +132,17 @@ export default function AdminPage() {
                         monitor.deleteMonitor(monitor.selectedKey);
                       }
                     }}
+                    onDuplicate={(file, key) => {
+                      setDuplicateSource(file);
+                      setDuplicateSourceKey(key);
+                      setShowCreateForm(true);
+                    }}
+                    onReset={async (scope) => {
+                      if (monitor.selectedKey) {
+                        return monitor.resetMonitor(monitor.selectedKey, scope);
+                      }
+                      return 0;
+                    }}
                     onToggle={(field, value) => {
                       if (monitor.selectedKey) {
                         monitor.toggleMonitor(monitor.selectedKey, field, value);
@@ -139,7 +164,11 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     <div className="flex justify-end">
                       <button
-                        onClick={() => setShowCreateForm(true)}
+                        onClick={() => {
+                          setDuplicateSource(null);
+                          setDuplicateSourceKey(null);
+                          setShowCreateForm(true);
+                        }}
                         className="px-4 py-2 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition"
                       >
                         {t('admin.monitors.create')}
@@ -156,6 +185,15 @@ export default function AdminPage() {
                       searchQuery={monitor.searchQuery}
                       setSearchQuery={monitor.setSearchQuery}
                       onSelect={(key) => monitor.fetchDetail(key)}
+                      onDuplicate={async (key) => {
+                        const file = await monitor.fetchDetail(key);
+                        if (!file) return;
+                        setDuplicateSource(file);
+                        setDuplicateSourceKey(key);
+                        setShowCreateForm(true);
+                        monitor.setSelectedMonitor(null);
+                        monitor.setSelectedKey(null);
+                      }}
                       onRefresh={monitor.refreshList}
                     />
                   </div>

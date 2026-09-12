@@ -541,6 +541,77 @@ func TestPG_PurgeOldRecords_BatchSize(t *testing.T) {
 	}
 }
 
+func TestPG_ResetMonitor(t *testing.T) {
+	store := newTestPGStore(t)
+	key := MonitorKey{Provider: "reset-p", Service: "cc", Channel: "pool-1", Model: "terra"}
+	modelID := "md_11111111-1111-4111-8111-111111111111"
+
+	first := pgRec(key, 1000)
+	first.ModelID = modelID
+	mustSavePG(t, store, first)
+	if err := store.UpsertServiceState(&ServiceState{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel, Model: key.Model,
+		StableAvailable: 0, StreakCount: 2, StreakStatus: 0, LastRecordID: first.ID, LastTimestamp: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("UpsertServiceState: %v", err)
+	}
+	if err := store.UpsertChannelState(&ChannelState{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		StableAvailable: 0, DownCount: 1, KnownCount: 1, LastRecordID: first.ID, LastTimestamp: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("UpsertChannelState: %v", err)
+	}
+	if err := store.SaveStatusEvent(&StatusEvent{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel, Model: key.Model,
+		EventType: EventTypeDown, FromStatus: 1, ToStatus: 0, TriggerRecordID: first.ID,
+		ObservedAt: first.Timestamp, CreatedAt: first.Timestamp,
+	}); err != nil {
+		t.Fatalf("SaveStatusEvent: %v", err)
+	}
+	if err := store.ReplaceMonitorOverrides([]MonitorOverrideRecord{{
+		Key: key, Board: "secondary", ColdReason: "test", CreatedAt: 1, UpdatedAt: 1,
+	}}); err != nil {
+		t.Fatalf("ReplaceMonitorOverrides: %v", err)
+	}
+
+	if _, err := store.ResetMonitor(MonitorResetOptions{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		ModelIDs: []string{modelID}, ClearHistory: false,
+	}); err != nil {
+		t.Fatalf("ResetMonitor state: %v", err)
+	}
+	if state, err := store.GetServiceState(key.Provider, key.Service, key.Channel, key.Model); err != nil || state != nil {
+		t.Fatalf("service state after reset = %+v, err=%v", state, err)
+	}
+	if state, err := store.GetChannelState(key.Provider, key.Service, key.Channel); err != nil || state != nil {
+		t.Fatalf("channel state after reset = %+v, err=%v", state, err)
+	}
+
+	renamed := pgRec(MonitorKey{Provider: "old", Service: "cc", Channel: "renamed", Model: "legacy"}, 2000)
+	renamed.ModelID = modelID
+	mustSavePG(t, store, renamed)
+	other := pgRec(MonitorKey{Provider: "other", Service: "cc", Channel: "pool-2", Model: "terra"}, 3000)
+	other.ModelID = "md_22222222-2222-4222-8222-222222222222"
+	mustSavePG(t, store, other)
+
+	deleted, err := store.ResetMonitor(MonitorResetOptions{
+		Provider: key.Provider, Service: key.Service, Channel: key.Channel,
+		ModelIDs: []string{modelID}, ClearHistory: true,
+	})
+	if err != nil {
+		t.Fatalf("ResetMonitor history: %v", err)
+	}
+	if deleted != 2 {
+		t.Fatalf("history reset deleted %d records, want 2", deleted)
+	}
+	if latest, err := store.GetLatestByModelID(modelID); err != nil || latest != nil {
+		t.Fatalf("target latest after history reset = %+v, err=%v", latest, err)
+	}
+	if latest, err := store.GetLatestByModelID(other.ModelID); err != nil || latest == nil {
+		t.Fatalf("other channel history was deleted: %+v, err=%v", latest, err)
+	}
+}
+
 // ===== Concurrent access =====
 
 func TestPG_ConcurrentReadWrite(t *testing.T) {

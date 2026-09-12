@@ -2331,6 +2331,60 @@ func (s *PostgresStorage) PurgeOldRecords(ctx context.Context, before time.Time,
 	return result.RowsAffected(), nil
 }
 
+// ResetMonitor 清理指定通道的状态机、事件和自动移板运行态；可选同时清理历史探测记录。
+// 所有操作在一个事务内完成，避免重置到一半时调度器看到不一致状态。
+func (s *PostgresStorage) ResetMonitor(options MonitorResetOptions) (int64, error) {
+	provider := strings.TrimSpace(options.Provider)
+	service := strings.TrimSpace(options.Service)
+	channel := strings.TrimSpace(options.Channel)
+	if provider == "" || service == "" || channel == "" {
+		return 0, fmt.Errorf("重置通道参数不能为空")
+	}
+
+	ctx := s.effectiveCtx()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("开始重置通道事务失败 (PostgreSQL): %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	for _, query := range []string{
+		`DELETE FROM service_states WHERE provider = $1 AND service = $2 AND channel = $3`,
+		`DELETE FROM channel_states WHERE provider = $1 AND service = $2 AND channel = $3`,
+		`DELETE FROM status_events WHERE provider = $1 AND service = $2 AND channel = $3`,
+		`DELETE FROM monitor_overrides WHERE provider = $1 AND service = $2 AND channel = $3`,
+	} {
+		if _, err := tx.Exec(ctx, query, provider, service, channel); err != nil {
+			return 0, fmt.Errorf("重置通道状态失败 (PostgreSQL): %w", err)
+		}
+	}
+
+	var deletedRecords int64
+	if options.ClearHistory {
+		conditions := []string{"(provider = $1 AND service = $2 AND channel = $3)"}
+		args := []any{provider, service, channel}
+		if len(options.ModelIDs) > 0 {
+			placeholders := make([]string, len(options.ModelIDs))
+			for i, modelID := range options.ModelIDs {
+				placeholders[i] = fmt.Sprintf("$%d", len(args)+1)
+				args = append(args, modelID)
+			}
+			conditions = append(conditions, "model_id IN ("+strings.Join(placeholders, ",")+")")
+		}
+		result, err := tx.Exec(ctx,
+			"DELETE FROM probe_history WHERE "+strings.Join(conditions, " OR "), args...)
+		if err != nil {
+			return 0, fmt.Errorf("清理通道历史记录失败 (PostgreSQL): %w", err)
+		}
+		deletedRecords = result.RowsAffected()
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("提交重置通道事务失败 (PostgreSQL): %w", err)
+	}
+	return deletedRecords, nil
+}
+
 // ExportDayToWriter 导出指定日期范围的历史记录到 writer
 // PostgreSQL 实现：使用 COPY 协议高效导出 CSV
 // 多实例互斥：按"日期(UTC)"加锁，避免多实例同时归档同一天数据
