@@ -34,7 +34,9 @@ func newValidateContext() *validateContext {
 // Validate 验证配置合法性
 // 注意：此方法有副作用，会预处理子通道的 provider/service/channel 继承
 func (c *AppConfig) validate() error {
-	if len(c.Monitors) == 0 && !c.Onboarding.Enabled {
+	// 管理后台启用时允许空配置启动，管理员可以通过 /admin 创建第一个监测项。
+	// 未启用 onboarding 或 admin 的普通部署仍要求至少有一个监测项。
+	if len(c.Monitors) == 0 && !c.Onboarding.Enabled && !c.Admin.Enabled {
 		return fmt.Errorf("至少需要配置一个监测项")
 	}
 
