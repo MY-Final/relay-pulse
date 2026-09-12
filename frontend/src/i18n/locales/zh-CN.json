@@ -604,8 +604,10 @@
     "logout": "退出",
     "auth": {
       "title": "管理员认证",
-      "tokenLabel": "管理员 Token",
-      "tokenPlaceholder": "输入管理员 Token",
+      "usernameLabel": "管理员账号",
+      "usernamePlaceholder": "输入管理员账号",
+      "passwordLabel": "管理员密码",
+      "passwordPlaceholder": "输入管理员密码",
       "login": "登录",
       "submitting": "验证中..."
     },
@@ -662,6 +664,7 @@
       "hideKey": "隐藏 API Key",
       "copyKey": "复制 API Key",
       "copiedKey": "已复制",
+      "clearKey": "清除 Key",
       "probe": "探测测试",
       "probeResponseBody": "响应内容",
       "probing": "探测中...",

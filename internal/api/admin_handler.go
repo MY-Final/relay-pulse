@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strconv"
@@ -28,39 +27,6 @@ func buildLikePattern(raw string) string {
 	escaped = strings.ReplaceAll(escaped, "%", "!%")
 	escaped = strings.ReplaceAll(escaped, "_", "!_")
 	return "%" + escaped + "%"
-}
-
-// checkAdminToken 验证管理员 Bearer token。
-// 返回 true 表示验证通过，false 表示已返回错误响应。
-func (h *Handler) checkAdminToken(c *gin.Context) bool {
-	h.cfgMu.RLock()
-	adminToken := h.config.Onboarding.AdminToken
-	h.cfgMu.RUnlock()
-
-	if adminToken == "" {
-		apiError(c, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "管理后台暂不可用")
-		return false
-	}
-
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		apiError(c, http.StatusUnauthorized, ErrCodeUnauthorized, "缺少 Authorization 请求头")
-		return false
-	}
-
-	const bearerPrefix = "Bearer "
-	if !strings.HasPrefix(authHeader, bearerPrefix) {
-		apiError(c, http.StatusUnauthorized, ErrCodeUnauthorized, "Authorization 格式错误，应为 Bearer <token>")
-		return false
-	}
-
-	token := strings.TrimPrefix(authHeader, bearerPrefix)
-	if subtle.ConstantTimeCompare([]byte(token), []byte(adminToken)) != 1 {
-		apiError(c, http.StatusForbidden, ErrCodeForbidden, "管理员 token 无效")
-		return false
-	}
-
-	return true
 }
 
 // AdminListSubmissions 管理员获取申请列表
@@ -100,7 +66,8 @@ func (h *Handler) AdminListSubmissions(c *gin.Context) {
 	})
 }
 
-// AdminGetSubmission 管理员获取申请详情（含解密 API Key）
+// AdminGetSubmission 管理员获取申请详情。
+// API Key 只返回存在标志和掩码；解密值仅在服务端执行测试/发布时短暂使用。
 // GET /api/admin/submissions/:id
 func (h *Handler) AdminGetSubmission(c *gin.Context) {
 	if !h.checkAdminToken(c) {
@@ -126,8 +93,9 @@ func (h *Handler) AdminGetSubmission(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"submission": sub,
-		"api_key":    apiKey,
+		"submission":      sub,
+		"api_key_present": strings.TrimSpace(apiKey) != "",
+		"api_key_masked":  maskAdminAPIKey(apiKey),
 	})
 }
 
@@ -344,7 +312,7 @@ func (h *Handler) AdminTestSubmission(c *gin.Context) {
 		"http_code":        result.HTTPCode,
 		"latency":          result.Latency,
 		"error_message":    result.ErrorMessage,
-		"response_snippet": result.ResponseSnippet,
+		"response_snippet": probe.RedactSecrets(result.ResponseSnippet, apiKey),
 		"probe_id":         result.ProbeID,
 		"curl":             result.Curl,
 	})

@@ -265,7 +265,7 @@ func (h *Handler) AdminGetChange(c *gin.Context) {
 	}
 
 	publicID := c.Param("id")
-	cr, newKey, err := svc.AdminGetDetail(c.Request.Context(), publicID)
+	cr, _, err := svc.AdminGetDetail(c.Request.Context(), publicID)
 	if err != nil {
 		logger.Error("admin", "获取变更请求详情失败", "public_id", publicID, "error", err)
 		apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "获取变更请求详情失败")
@@ -277,8 +277,7 @@ func (h *Handler) AdminGetChange(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"change":  cr,
-		"new_key": newKey,
+		"change": cr,
 	})
 }
 

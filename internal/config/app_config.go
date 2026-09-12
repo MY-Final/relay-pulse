@@ -182,6 +182,9 @@ type AppConfig struct {
 	// 服务商自助收录配置
 	Onboarding OnboardingConfig `yaml:"onboarding" json:"onboarding"`
 
+	// 管理后台配置
+	Admin AdminConfig `yaml:"admin" json:"admin"`
+
 	// 变更请求配置
 	ChangeRequests ChangeRequestConfig `yaml:"change_requests" json:"change_requests"`
 

@@ -4,7 +4,7 @@ import type { AdminChangeRequest, ChangeRequestStatus } from '../types/change';
 
 type ChangeAction = 'approve' | 'reject' | 'apply' | 'delete';
 
-export function useChangeAdmin(token: string) {
+export function useChangeAdmin(isAuthenticated: boolean) {
   const [changes, setChanges] = useState<AdminChangeRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,13 +25,10 @@ export function useChangeAdmin(token: string) {
     });
   }, []);
 
-  const headers = useMemo(
-    (): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {}),
-    [token],
-  );
+  const headers = useMemo((): Record<string, string> => ({}), []);
 
   const fetchList = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     setError(null);
     setFeatureDisabled(false);
@@ -48,7 +45,7 @@ export function useChangeAdmin(token: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, statusFilter, headers]);
+  }, [isAuthenticated, statusFilter, headers]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载/筛选变更即取数：fetchList 在 await 前同步置 loading/清错误为有意
@@ -56,18 +53,18 @@ export function useChangeAdmin(token: string) {
   }, [fetchList]);
 
   const fetchDetail = useCallback(async (id: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     try {
-      const resp = await apiGet<{ change: AdminChangeRequest; new_key?: string }>(`/api/admin/changes/${id}`, { headers });
+      const resp = await apiGet<{ change: AdminChangeRequest }>(`/api/admin/changes/${id}`, { headers });
       setSelectedChange(resp.change);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load change request detail');
     }
-  }, [token, headers]);
+  }, [isAuthenticated, headers]);
 
   const updateChange = useCallback(async (id: string, updates: Record<string, unknown>) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     try {
       await apiPut(`/api/admin/changes/${id}`, updates, { headers });
@@ -75,10 +72,10 @@ export function useChangeAdmin(token: string) {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to update change request');
     }
-  }, [token, headers, fetchList]);
+  }, [isAuthenticated, headers, fetchList]);
 
   const approveChange = useCallback(async (id: string, note?: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     markPending(id, 'approve');
     try {
@@ -90,10 +87,10 @@ export function useChangeAdmin(token: string) {
     } finally {
       clearPending(id);
     }
-  }, [token, headers, fetchList, markPending, clearPending]);
+  }, [isAuthenticated, headers, fetchList, markPending, clearPending]);
 
   const rejectChange = useCallback(async (id: string, note: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     markPending(id, 'reject');
     try {
@@ -105,10 +102,10 @@ export function useChangeAdmin(token: string) {
     } finally {
       clearPending(id);
     }
-  }, [token, headers, fetchList, markPending, clearPending]);
+  }, [isAuthenticated, headers, fetchList, markPending, clearPending]);
 
   const applyChange = useCallback(async (id: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     markPending(id, 'apply');
     try {
@@ -120,10 +117,10 @@ export function useChangeAdmin(token: string) {
     } finally {
       clearPending(id);
     }
-  }, [token, headers, fetchList, markPending, clearPending]);
+  }, [isAuthenticated, headers, fetchList, markPending, clearPending]);
 
   const deleteChange = useCallback(async (id: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     markPending(id, 'delete');
     try {
@@ -135,7 +132,7 @@ export function useChangeAdmin(token: string) {
     } finally {
       clearPending(id);
     }
-  }, [token, headers, fetchList, markPending, clearPending]);
+  }, [isAuthenticated, headers, fetchList, markPending, clearPending]);
 
   return {
     changes,

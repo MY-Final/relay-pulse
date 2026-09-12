@@ -137,9 +137,9 @@ func NewServer(store storage.Storage, cfg *config.AppConfig, port string, autoMo
 	corsConfig := cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID", "Accept-Encoding"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID", "Accept-Encoding", "X-CSRF-Token"},
 		ExposeHeaders:    []string{"Content-Length", "X-Request-ID"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}
 	router.Use(cors.New(corsConfig))
@@ -242,7 +242,12 @@ func NewServer(store storage.Storage, cfg *config.AppConfig, port string, autoMo
 	router.POST("/api/onboarding/test", handler.OnboardingTest)
 	router.POST("/api/onboarding/submit", handler.SubmitOnboarding)
 
-	// 管理后台 API 路由（需 Bearer token 鉴权）
+	// 管理后台认证 API
+	router.POST("/api/admin/login", handler.AdminLogin)
+	router.GET("/api/admin/me", handler.AdminMe)
+	router.POST("/api/admin/logout", handler.AdminLogout)
+
+	// 管理后台 API 路由（支持 HttpOnly 会话或兼容旧 Bearer token）
 	router.GET("/api/admin/submissions", handler.AdminListSubmissions)
 	router.GET("/api/admin/submissions/:id", handler.AdminGetSubmission)
 	router.PUT("/api/admin/submissions/:id", handler.AdminUpdateSubmission)

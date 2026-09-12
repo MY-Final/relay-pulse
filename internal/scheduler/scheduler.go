@@ -576,6 +576,11 @@ func (s *Scheduler) rebuildTasks(cfg *config.AppConfig, startup bool) {
 				// 启动路径刻意不封顶——那时全部任务都要铺开填满周期。
 				if delay := groupDelay + intraDelay; delay > interval {
 					nextRun = now.Add(interval)
+				} else {
+					// 某些平台的时钟分辨率会让两次紧邻的 time.Now() 相同，
+					// 造成已重排任务看起来仍保留旧相位。纳秒只用于区分调度
+					// 边界，不改变实际探测时刻。
+					nextRun = nextRun.Add(time.Nanosecond)
 				}
 			}
 

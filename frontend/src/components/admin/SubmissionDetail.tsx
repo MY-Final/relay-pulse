@@ -31,9 +31,6 @@ function hasDraftChanged(draft: Draft, sub: AdminSubmission): boolean {
 
 interface SubmissionDetailProps {
   submission: AdminSubmission;
-  apiKey: string;
-  showApiKey: boolean;
-  setShowApiKey: (show: boolean) => void;
   onSave: (fields: Partial<AdminSubmission>) => void;
   onTest: () => Promise<OnboardingTestResult | null>;
   /** 按服务类型拉取可用模板。失败应抛错，由本组件降级为禁用控件 + 错误提示。 */
@@ -90,9 +87,6 @@ function buildTemplateOptions(
 
 export const SubmissionDetail: React.FC<SubmissionDetailProps> = ({
   submission,
-  apiKey,
-  showApiKey,
-  setShowApiKey,
   onSave,
   onTest,
   fetchTemplates,
@@ -641,21 +635,9 @@ export const SubmissionDetail: React.FC<SubmissionDetailProps> = ({
           <label className="block text-xs font-medium text-muted mb-1">
             {t('admin.detail.apiKey')}
           </label>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 px-3 py-2 bg-elevated border border-default rounded-md
-                            text-sm font-mono text-secondary overflow-hidden text-ellipsis">
-              {showApiKey
-                ? apiKey || t('admin.detail.apiKeyNotLoaded')
-                : maskApiKey(submission.api_key_last4)}
-            </div>
-            <button
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="px-3 py-2 text-xs rounded-md border
-                         bg-accent/10 border-accent/40 text-accent
-                         hover:bg-accent/20 transition-colors whitespace-nowrap"
-            >
-              {showApiKey ? t('admin.detail.hideKey') : t('admin.detail.showKey')}
-            </button>
+          <div className="px-3 py-2 bg-elevated border border-default rounded-md
+                          text-sm font-mono text-secondary overflow-hidden text-ellipsis">
+            {maskApiKey(submission.api_key_last4)}
           </div>
           <p className="mt-1 text-xs text-muted">
             {t('admin.detail.apiKeyFingerprint')}: {submission.api_key_fingerprint}
@@ -727,7 +709,7 @@ export const SubmissionDetail: React.FC<SubmissionDetailProps> = ({
           {testResult.error_message && (
             <p className="text-xs text-danger">{testResult.error_message}</p>
           )}
-          {testResult.curl && <CurlCommandBlock curl={testResult.curl} apiKey={apiKey} />}
+          {testResult.curl && <CurlCommandBlock curl={testResult.curl} />}
         </div>
       )}
     </div>

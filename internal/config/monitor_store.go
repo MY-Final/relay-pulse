@@ -7,14 +7,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"monitor/internal/apikey"
 )
 
 // MonitorStore 提供 monitors.d/ 文件级 CRUD 操作。
 // 所有写操作通过 mutex 串行化，使用 AtomicWriteYAML 确保崩溃安全。
 // 写入后由 fsnotify 自动触发热更新，无需手动调用 reload。
 type MonitorStore struct {
-	dir string     // monitors.d/ 绝对路径
-	mu  sync.Mutex // 写操作串行化
+	dir       string            // monitors.d/ 绝对路径
+	mu        sync.Mutex        // 写操作串行化
+	keyCipher *apikey.KeyCipher // admin 新写入 API Key 时使用；nil 保持旧明文兼容
 }
 
 // NewMonitorStore 创建 MonitorStore。dir 是 monitors.d/ 的绝对路径。
@@ -25,6 +28,11 @@ func NewMonitorStore(dir string) *MonitorStore {
 // Dir 返回 monitors.d/ 目录路径。
 func (s *MonitorStore) Dir() string {
 	return s.dir
+}
+
+// SetKeyCipher 设置监测 API Key 的持久化加密器。仅应在服务启动阶段调用。
+func (s *MonitorStore) SetKeyCipher(cipher *apikey.KeyCipher) {
+	s.keyCipher = cipher
 }
 
 // validateKeySegment 校验 PSC 字段不含路径分隔符或目录穿越字符。
@@ -229,6 +237,9 @@ func (s *MonitorStore) Create(file *MonitorFile) error {
 	if err := ValidateFileModelIDsUnique(file); err != nil {
 		return err
 	}
+	if err := s.prepareAPIKeysForWrite(file); err != nil {
+		return err
+	}
 
 	if err := AtomicWriteYAML(path, file); err != nil {
 		return err
@@ -381,6 +392,40 @@ func copyAdminHiddenFields(dst, src *ServiceConfig) {
 	dst.RequestModel = src.RequestModel
 	dst.SkipURLValidation = src.SkipURLValidation
 	dst.URLPattern = src.URLPattern
+	if dst.ClearAPIKey {
+		dst.APIKey = ""
+		dst.APIKeyEncrypted = ""
+	} else if strings.TrimSpace(dst.APIKey) == "" {
+		dst.APIKey = src.APIKey
+		dst.APIKeyEncrypted = src.APIKeyEncrypted
+	} else {
+		dst.APIKeyEncrypted = ""
+	}
+	dst.ClearAPIKey = false
+}
+
+// prepareAPIKeysForWrite 把管理员请求里的明文 Key 转成密文；旧配置在没有
+// 加密器时保持原样，保证测试工具和历史手工配置兼容。
+func (s *MonitorStore) prepareAPIKeysForWrite(file *MonitorFile) error {
+	for i := range file.Monitors {
+		monitor := &file.Monitors[i]
+		monitor.APIKeyPresent = false
+		monitor.APIKeyMasked = ""
+		monitor.ClearAPIKey = false
+		if strings.TrimSpace(monitor.APIKey) == "" {
+			continue
+		}
+		if s.keyCipher == nil {
+			continue
+		}
+		encrypted, err := s.keyCipher.Encrypt(monitor.APIKey)
+		if err != nil {
+			return fmt.Errorf("加密监测项 API Key 失败: %w", err)
+		}
+		monitor.APIKey = ""
+		monitor.APIKeyEncrypted = encrypted
+	}
+	return nil
 }
 
 // Update 更新监测文件。使用 revision 乐观锁防止并发覆盖。
@@ -439,6 +484,9 @@ func (s *MonitorStore) Update(key string, file *MonitorFile, expectedRevision in
 	// 写盘前 fail-loud：一对一合并已杜绝"复制既有 id"，但 payload 自带的重复 id 仍会原样落盘。
 	// 拒绝时磁盘文件与 revision 均不改动。
 	if err := ValidateFileModelIDsUnique(file); err != nil {
+		return err
+	}
+	if err := s.prepareAPIKeysForWrite(file); err != nil {
 		return err
 	}
 

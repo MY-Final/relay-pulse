@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/singleflight"
 
+	"monitor/internal/apikey"
 	"monitor/internal/automove"
 	"monitor/internal/change"
 	"monitor/internal/config"
@@ -241,28 +242,33 @@ func (c *statusCache) loadWithTTL(key string, ttl time.Duration, loader func() (
 
 // Handler API处理器
 type Handler struct {
-	storage       storage.Storage
-	config        *config.AppConfig
-	cfgMu         sync.RWMutex         // 保护config的并发访问
-	cache         *statusCache         // API 响应缓存
-	autoMover     *automove.Service    // 自动移板服务（可选）
-	inlineProber  *probe.InlineProber  // 内联探测器
-	probeLimiter  *probe.IPLimiter     // 公共探测端点限流
-	onboardingMu  sync.RWMutex         // 保护 onboardingSvc 热替换
-	onboardingSvc *onboarding.Service  // 自助收录服务（可选）
-	changeMu      sync.RWMutex         // 保护 changeSvc 热替换
-	changeSvc     *change.Service      // 变更请求服务（可选）
-	monitorStore  *config.MonitorStore // monitors.d/ CRUD（可选）
-	rpdiagClient  *rpdiag.Client       // rpdiag 质量分客户端（可选，启动时一次性注入）
+	storage        storage.Storage
+	config         *config.AppConfig
+	cfgMu          sync.RWMutex         // 保护config的并发访问
+	cache          *statusCache         // API 响应缓存
+	autoMover      *automove.Service    // 自动移板服务（可选）
+	inlineProber   *probe.InlineProber  // 内联探测器
+	probeLimiter   *probe.IPLimiter     // 公共探测端点限流
+	onboardingMu   sync.RWMutex         // 保护 onboardingSvc 热替换
+	onboardingSvc  *onboarding.Service  // 自助收录服务（可选）
+	changeMu       sync.RWMutex         // 保护 changeSvc 热替换
+	changeSvc      *change.Service      // 变更请求服务（可选）
+	monitorStore   *config.MonitorStore // monitors.d/ CRUD（可选）
+	adminKeyCipher *apikey.KeyCipher    // admin monitor API Key 加密器（可选）
+	adminLimiter   *adminLoginLimiter   // 管理员登录失败限流器
+	adminSessions  *adminSessionRevocations
+	rpdiagClient   *rpdiag.Client // rpdiag 质量分客户端（可选，启动时一次性注入）
 }
 
 // NewHandler 创建处理器
 func NewHandler(store storage.Storage, cfg *config.AppConfig, autoMover *automove.Service) *Handler {
 	return &Handler{
-		storage:   store,
-		config:    cfg,
-		cache:     newStatusCache(10*time.Second, 100), // 10 秒缓存，最多 100 条
-		autoMover: autoMover,
+		storage:       store,
+		config:        cfg,
+		cache:         newStatusCache(10*time.Second, 100), // 10 秒缓存，最多 100 条
+		autoMover:     autoMover,
+		adminLimiter:  newAdminLoginLimiter(),
+		adminSessions: newAdminSessionRevocations(),
 	}
 }
 
@@ -347,6 +353,11 @@ func (h *Handler) getChangeService() *change.Service {
 // SetMonitorStore 设置 monitors.d/ 存储（仅初始化时调用一次，无需加锁）
 func (h *Handler) SetMonitorStore(store *config.MonitorStore) {
 	h.monitorStore = store
+}
+
+// SetAdminKeyCipher 设置 admin 管理的监测 API Key 加密器。
+func (h *Handler) SetAdminKeyCipher(cipher *apikey.KeyCipher) {
+	h.adminKeyCipher = cipher
 }
 
 // getMonitorStore 获取 monitors.d/ 存储

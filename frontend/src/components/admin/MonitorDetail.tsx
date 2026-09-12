@@ -1,6 +1,6 @@
 import { useEffect, useState, type InputHTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Copy, Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { MonitorConfig, MonitorFile, ProbeHistoryEntry, ProbeTarget } from '../../types/monitor';
 import type { ProbeResult } from '../../hooks/useMonitorAdmin';
 import { PARENT_TARGET_KEY } from '../../hooks/useMonitorAdmin';
@@ -46,7 +46,7 @@ interface MonitorDetailProps {
 type EditableFields = Pick<MonitorConfig,
   'provider_name' | 'channel_name' | 'provider_url' | 'template' | 'base_url' | 'api_key' | 'proxy' |
   'category' | 'sponsor_level' | 'board' | 'cold_reason' | 'interval' | 'listed_since' | 'expires_at' |
-  'price_min' | 'price_max' | 'key_type' | 'auto_cold_exempt' | 'auto_move_exempt'
+  'price_min' | 'price_max' | 'key_type' | 'auto_cold_exempt' | 'auto_move_exempt' | 'clear_api_key'
 >;
 
 interface ChildEdit {
@@ -57,6 +57,7 @@ interface ChildEdit {
   template: string;
   base_url: string;
   api_key: string;
+  clear_api_key: boolean;
 }
 
 interface SelectOption {
@@ -100,7 +101,7 @@ export function MonitorDetail({
     provider_url: root?.provider_url || '',
     template: root?.template || '',
     base_url: root?.base_url || '',
-    api_key: root?.api_key || '',
+    api_key: '',
     proxy: root?.proxy || '',
     category: root?.category || '',
     sponsor_level: root?.sponsor_level || '',
@@ -114,6 +115,7 @@ export function MonitorDetail({
     key_type: root?.key_type || '',
     auto_cold_exempt: root?.auto_cold_exempt ?? false,
     auto_move_exempt: root?.auto_move_exempt ?? false,
+    clear_api_key: false,
   });
 
   const [editChildren, setEditChildren] = useState<ChildEdit[]>([]);
@@ -170,7 +172,8 @@ export function MonitorDetail({
       model_vendor: c.model_vendor || '',
       template: c.template || '',
       base_url: c.base_url || '',
-      api_key: c.api_key || '',
+      api_key: '',
+      clear_api_key: false,
     }));
 
   const startEditing = () => {
@@ -180,7 +183,7 @@ export function MonitorDetail({
       provider_url: root?.provider_url || '',
       template: root?.template || '',
       base_url: root?.base_url || '',
-      api_key: root?.api_key || '',
+      api_key: '',
       proxy: root?.proxy || '',
       category: root?.category || '',
       sponsor_level: root?.sponsor_level || '',
@@ -194,6 +197,7 @@ export function MonitorDetail({
       key_type: root?.key_type || '',
       auto_cold_exempt: root?.auto_cold_exempt ?? false,
       auto_move_exempt: root?.auto_move_exempt ?? false,
+      clear_api_key: false,
     });
     setEditChildren(toChildEdits(children));
     setPriceMinRaw(root?.price_min != null ? String(root.price_min) : '');
@@ -209,14 +213,16 @@ export function MonitorDetail({
   };
 
   const addChild = () => {
-    setEditChildren(prev => [...prev, { model: '', model_vendor: '', template: '', base_url: '', api_key: '' }]);
+    setEditChildren(prev => [...prev, {
+      model: '', model_vendor: '', template: '', base_url: '', api_key: '', clear_api_key: false,
+    }]);
   };
 
   const removeChild = (index: number) => {
     setEditChildren(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateChild = (index: number, field: keyof ChildEdit, value: string) => {
+  const updateChild = (index: number, field: keyof ChildEdit, value: string | boolean) => {
     setEditChildren(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
   };
 
@@ -257,6 +263,7 @@ export function MonitorDetail({
         template: c.template || undefined,
         base_url: c.base_url || undefined,
         api_key: c.api_key || undefined,
+        clear_api_key: c.clear_api_key || undefined,
       }));
       const updatedFile: MonitorFile = {
         ...monitorFile,
@@ -453,9 +460,16 @@ export function MonitorDetail({
           />
           <ApiKeyField
             label={t('admin.monitors.field.apiKey')}
-            apiKey={isEditing ? (editFields.api_key || '') : (root?.api_key || '')}
+            apiKey={isEditing ? (editFields.api_key || '') : ''}
+            maskedApiKey={root?.api_key_masked}
+            hasExistingKey={root?.api_key_present}
+            clearRequested={!!editFields.clear_api_key}
+            onClear={() => updateField('clear_api_key', !editFields.clear_api_key)}
             editing={isEditing}
-            onChange={v => updateField('api_key', v)}
+            onChange={v => {
+              updateField('api_key', v);
+              if (v) updateField('clear_api_key', false);
+            }}
           />
           <EditableField
             label={t('admin.monitors.field.proxy')}
@@ -632,9 +646,22 @@ export function MonitorDetail({
                     <input
                       type="password"
                       value={child.api_key}
-                      onChange={e => updateChild(i, 'api_key', e.target.value)}
+                      placeholder={child._original?.api_key_masked || ''}
+                      onChange={e => {
+                        updateChild(i, 'api_key', e.target.value);
+                        if (e.target.value) updateChild(i, 'clear_api_key', false);
+                      }}
                       className={`w-full ${fieldShapeClass({ dense: true })}`}
                     />
+                    {(child._original?.api_key_present || child.clear_api_key) && (
+                      <button
+                        type="button"
+                        onClick={() => updateChild(i, 'clear_api_key', !child.clear_api_key)}
+                        className={`text-[11px] ${child.clear_api_key ? 'text-warning' : 'text-danger'} hover:underline`}
+                      >
+                        {t('admin.monitors.clearKey')}
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => removeChild(i)}
@@ -691,7 +718,7 @@ export function MonitorDetail({
                       <ProbeResultLine result={rowResult} error={rowError} />
                     </div>
                     {/* 子通道 api_key 由后端继承解析、前端不持有，故 curl 仅提供脱敏版 */}
-                    <ProbeResultDetail result={rowResult} apiKey="" />
+                    <ProbeResultDetail result={rowResult} />
                   </div>
                 );
               })}
@@ -748,7 +775,7 @@ export function MonitorDetail({
         )}
       </div>
 
-      {!templateDirty && <ProbeResultDetail result={parentResult} apiKey={editFields.api_key} />}
+      {!templateDirty && <ProbeResultDetail result={parentResult} />}
       </>
       )}
     </div>
@@ -791,7 +818,7 @@ function ProbeResultLine({ result, error }: { result?: ProbeResult | null; error
 }
 
 /** 探测结果的详细诊断：上游响应体片段 + 可复制脱敏 curl。父子通道共用。 */
-function ProbeResultDetail({ result, apiKey }: { result?: ProbeResult | null; apiKey?: string }) {
+function ProbeResultDetail({ result }: { result?: ProbeResult | null }) {
   const { t } = useTranslation();
   if (!result) return null;
 
@@ -805,7 +832,7 @@ function ProbeResultDetail({ result, apiKey }: { result?: ProbeResult | null; ap
           </pre>
         </div>
       )}
-      {result.curl && <CurlCommandBlock curl={result.curl} apiKey={apiKey} />}
+      {result.curl && <CurlCommandBlock curl={result.curl} />}
     </>
   );
 }
@@ -938,64 +965,24 @@ function withCurrentOption(options: SelectOption[], current?: string | null): Se
 }
 
 function ApiKeyField({
-  label, apiKey, editing, onChange,
+  label, apiKey, maskedApiKey, hasExistingKey, clearRequested, editing, onChange, onClear,
 }: {
   label: string;
   apiKey: string;
+  maskedApiKey?: string;
+  hasExistingKey?: boolean;
+  clearRequested: boolean;
   editing: boolean;
   onChange: (v: string) => void;
+  onClear: () => void;
 }) {
   const { t } = useTranslation();
-  const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!apiKey) return;
-    try {
-      await navigator.clipboard.writeText(apiKey);
-    } catch {
-      const input = document.createElement('input');
-      input.value = apiKey;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const revealTitle = revealed ? t('admin.monitors.hideKey') : t('admin.monitors.showKey');
-  const copyTitle = copied ? t('admin.monitors.copiedKey') : t('admin.monitors.copyKey');
 
   if (!editing) {
-    const displayValue = apiKey ? (revealed ? apiKey : `***${apiKey.slice(-4)}`) : '';
     return (
       <div>
         <span className="text-muted">{label}: </span>
-        <span className="text-primary break-all">{displayValue || '-'}</span>
-        {apiKey && (
-          <span className="inline-flex gap-1 ml-2 align-middle">
-            <button
-              type="button"
-              onClick={() => setRevealed(v => !v)}
-              className="text-muted hover:text-accent transition"
-              title={revealTitle}
-              aria-label={revealTitle}
-            >
-              {revealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="text-muted hover:text-accent transition"
-              title={copyTitle}
-              aria-label={copyTitle}
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </span>
-        )}
+        <span className="text-primary break-all">{maskedApiKey || (hasExistingKey ? '********' : '-')}</span>
       </div>
     );
   }
@@ -1005,30 +992,21 @@ function ApiKeyField({
       <label className="block text-xs text-muted mb-0.5">{label}</label>
       <div className="flex items-center gap-1">
         <input
-          type={revealed ? 'text' : 'password'}
+          type="password"
           value={apiKey}
+          placeholder={maskedApiKey || (hasExistingKey ? '********' : '')}
           onChange={e => onChange(e.target.value)}
           className={`flex-1 min-w-0 ${fieldShapeClass({ dense: true })}`}
         />
-        <button
-          type="button"
-          onClick={() => setRevealed(v => !v)}
-          className="p-1 text-muted hover:text-accent transition"
-          title={revealTitle}
-          aria-label={revealTitle}
-        >
-          {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={handleCopy}
-          disabled={!apiKey}
-          className="p-1 text-muted hover:text-accent transition disabled:opacity-30"
-          title={copyTitle}
-          aria-label={copyTitle}
-        >
-          {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
-        </button>
+        {(hasExistingKey || clearRequested) && (
+          <button
+            type="button"
+            onClick={onClear}
+            className={`px-2 py-1 text-xs ${clearRequested ? 'text-warning' : 'text-danger'} hover:underline`}
+          >
+            {t('admin.monitors.clearKey')}
+          </button>
+        )}
       </div>
     </div>
   );

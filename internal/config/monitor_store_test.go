@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"monitor/internal/apikey"
 )
 
 // setupTestMonitorsDir 创建临时 monitors.d/ 结构用于测试。
@@ -294,6 +296,68 @@ func TestUpdate_RevisionConflict(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "revision") {
 		t.Errorf("expected 'revision' in error, got: %v", err)
+	}
+}
+
+func TestMonitorStore_EncryptsAndPreservesAPIKey(t *testing.T) {
+	configDir, _ := setupTestMonitorsDir(t)
+	store := NewMonitorStore(filepath.Join(configDir, MonitorsDirName))
+	cipher, err := apikey.NewKeyCipher(strings.Repeat("ab", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.SetKeyCipher(cipher)
+
+	const secret = "sk-admin-secret-1234"
+	file := &MonitorFile{Monitors: []ServiceConfig{{
+		Provider: "acme", Service: "cc", Channel: "vip", BaseURL: "https://x.com", APIKey: secret,
+	}}}
+	if err := store.Create(file); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(file.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), secret) || !strings.Contains(string(raw), "api_key_encrypted:") {
+		t.Fatalf("YAML 应只保存密文，got: %s", raw)
+	}
+
+	got, err := store.Get(file.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Monitors[0].APIKey != "" || got.Monitors[0].APIKeyEncrypted == "" {
+		t.Fatalf("store 读取不应返回明文，got %+v", got.Monitors[0])
+	}
+
+	updated := &MonitorFile{Monitors: []ServiceConfig{{
+		Provider: "acme", Service: "cc", Channel: "vip", BaseURL: "https://new.example.com",
+	}}}
+	if err := store.Update(file.Key, updated, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.Get(file.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain, err := cipher.Decrypt(got.Monitors[0].APIKeyEncrypted)
+	if err != nil || plain != secret {
+		t.Fatalf("编辑留空应保留原 Key，plain=%q err=%v", plain, err)
+	}
+
+	clear := &MonitorFile{Monitors: []ServiceConfig{{
+		Provider: "acme", Service: "cc", Channel: "vip", ClearAPIKey: true,
+	}}}
+	if err := store.Update(file.Key, clear, 2); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.Get(file.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Monitors[0].APIKey != "" || got.Monitors[0].APIKeyEncrypted != "" {
+		t.Fatalf("清除 Key 后仍有密文或明文: %+v", got.Monitors[0])
 	}
 }
 

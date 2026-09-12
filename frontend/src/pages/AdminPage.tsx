@@ -22,10 +22,10 @@ export default function AdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const {
-    token, isAuthenticated, setToken, logout,
+    isAuthenticated, isCheckingAuth, login, logout,
     submissions, total, statusFilter, setStatusFilter,
     page, setPage, isLoading, searchQuery, setSearchQuery,
-    selectedSubmission, selectedApiKey, showApiKey, setShowApiKey,
+    selectedSubmission,
     fetchDetail, fetchTemplates, updateSubmission, testSubmission, rejectSubmission, deleteSubmission, publishSubmission,
     detailLoadingId, cancelDetail,
     setSelectedSubmission,
@@ -33,8 +33,8 @@ export default function AdminPage() {
     suggestedChannel,
   } = useAdmin();
 
-  const monitor = useMonitorAdmin(token);
-  const changeAdmin = useChangeAdmin(token);
+  const monitor = useMonitorAdmin(isAuthenticated);
+  const changeAdmin = useChangeAdmin(isAuthenticated);
 
   const handleTabChange = (tab: AdminTab) => {
     cancelDetail();
@@ -56,11 +56,12 @@ export default function AdminPage() {
 
       <main className="min-h-screen bg-page py-8 px-4">
         <div className="max-w-5xl mx-auto space-y-6">
-          {!isAuthenticated ? (
+          {isCheckingAuth ? (
+            <DetailLoading />
+          ) : !isAuthenticated ? (
             <AdminAuth
-              token={token}
-              setToken={setToken}
-              onSubmit={() => { /* auth is automatic on token set */ }}
+              onSubmit={login}
+              error={submissionError}
             />
           ) : (
             <>
@@ -108,9 +109,6 @@ export default function AdminPage() {
                 ) : selectedSubmission ? (
                   <SubmissionDetail
                     submission={selectedSubmission}
-                    apiKey={selectedApiKey}
-                    showApiKey={showApiKey}
-                    setShowApiKey={setShowApiKey}
                     onSave={(updates) => updateSubmission(selectedSubmission.public_id, updates)}
                     onTest={() => testSubmission(selectedSubmission.public_id)}
                     fetchTemplates={fetchTemplates}

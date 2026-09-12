@@ -22,6 +22,9 @@ services:
     environment:
       TZ: Asia/Shanghai
       MONITOR_SQLITE_PATH: /data/monitor.db
+      # admin.enabled=true 时必须在 .env 中配置这两个密钥；env_file 也会载入同名变量。
+      MONITOR_ADMIN_SESSION_SECRET: ${MONITOR_ADMIN_SESSION_SECRET:-}
+      MONITOR_ADMIN_ENCRYPTION_KEY: ${MONITOR_ADMIN_ENCRYPTION_KEY:-}
       HTTP_PROXY: ${RUNTIME_HTTP_PROXY:-http://192.168.2.15:7890}
       HTTPS_PROXY: ${RUNTIME_HTTPS_PROXY:-http://192.168.2.15:7890}
       NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}

@@ -52,7 +52,11 @@ export interface MonitorConfig {
   parent?: string;
   template?: string;
   base_url?: string;
+  /** 写入接口专用；读取接口不会返回明文。 */
   api_key?: string;
+  api_key_present?: boolean;
+  api_key_masked?: string;
+  clear_api_key?: boolean;
   proxy?: string;
   method?: string;
   headers?: Record<string, string>;

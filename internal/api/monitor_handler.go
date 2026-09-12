@@ -263,9 +263,49 @@ func (h *Handler) AdminGetMonitor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"monitor":       file,
+		"monitor":       h.adminMonitorView(file),
 		"probe_targets": h.buildProbeTargets(findRawRoot(file.Monitors), file.Monitors),
 	})
+}
+
+// adminMonitorView 是管理后台的脱敏响应视图。API Key 只允许作为写入字段进入请求，
+// 读取接口只返回存在标志和末四位掩码，避免浏览器、代理和前端状态长期持有明文。
+func (h *Handler) adminMonitorView(file *config.MonitorFile) config.MonitorFile {
+	if file == nil {
+		return config.MonitorFile{}
+	}
+	view := *file
+	view.Monitors = make([]config.ServiceConfig, len(file.Monitors))
+	copy(view.Monitors, file.Monitors)
+	for i := range view.Monitors {
+		monitor := &view.Monitors[i]
+		secret := monitor.APIKey
+		if secret == "" && monitor.APIKeyEncrypted != "" && h.adminKeyCipher != nil {
+			if decrypted, err := h.adminKeyCipher.Decrypt(monitor.APIKeyEncrypted); err == nil {
+				secret = decrypted
+			}
+		}
+		monitor.APIKeyPresent = monitor.APIKey != "" || monitor.APIKeyEncrypted != "" || secret != ""
+		monitor.APIKeyMasked = maskAdminAPIKey(secret)
+		if monitor.APIKeyPresent && monitor.APIKeyMasked == "" {
+			monitor.APIKeyMasked = "********"
+		}
+		monitor.APIKey = ""
+		monitor.APIKeyEncrypted = ""
+		monitor.ClearAPIKey = false
+	}
+	return view
+}
+
+func maskAdminAPIKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if len(value) <= 4 {
+		return "********"
+	}
+	return "********" + value[len(value)-4:]
 }
 
 // AdminCreateMonitor 创建新监测项
@@ -331,7 +371,7 @@ func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"monitor": file,
+		"monitor": h.adminMonitorView(&file),
 	})
 }
 
@@ -394,7 +434,7 @@ func (h *Handler) AdminUpdateMonitor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"monitor": req.Monitor,
+		"monitor": h.adminMonitorView(&req.Monitor),
 	})
 }
 
@@ -488,7 +528,7 @@ func (h *Handler) AdminToggleMonitor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"monitor": file,
+		"monitor": h.adminMonitorView(file),
 	})
 }
 
@@ -597,6 +637,11 @@ func (h *Handler) AdminProbeMonitor(c *gin.Context) {
 				apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "解析监测配置失败: "+err.Error())
 				return
 			}
+			if err := h.decryptAdminMonitorAPIKey(&cfg); err != nil {
+				logger.Error("admin", "解密监测 API Key 失败", "key", key, "error", err)
+				apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "读取监测配置失败")
+				return
+			}
 			logger.Warn("admin", "AdminProbeMonitor 使用 raw fallback 解析",
 				"key", key, "provider", root.Provider, "service", root.Service, "channel", root.Channel)
 			c.Header("X-Probe-Config-Source", "raw-fallback")
@@ -637,10 +682,28 @@ func (h *Handler) AdminProbeMonitor(c *gin.Context) {
 		"http_code":        result.HTTPCode,
 		"latency":          result.Latency,
 		"error_message":    result.ErrorMessage,
-		"response_snippet": result.ResponseSnippet,
+		"response_snippet": probe.RedactSecrets(result.ResponseSnippet, cfg.APIKey),
 		"curl":             result.Curl,
 		"via_proxy":        result.ViaProxy,
 	})
+}
+
+// decryptAdminMonitorAPIKey 处理刚写入 monitors.d、尚未触发热加载时的手动探测。
+// 正常运行路径由 Loader 在内存配置中解密；fallback 需要从 raw 文件补齐同一字段，
+// 但绝不把明文写回文件或返回给前端。
+func (h *Handler) decryptAdminMonitorAPIKey(cfg *config.ServiceConfig) error {
+	if cfg == nil || strings.TrimSpace(cfg.APIKey) != "" || strings.TrimSpace(cfg.APIKeyEncrypted) == "" {
+		return nil
+	}
+	if h.adminKeyCipher == nil {
+		return fmt.Errorf("管理员 API Key 加密器未初始化")
+	}
+	plain, err := h.adminKeyCipher.Decrypt(cfg.APIKeyEncrypted)
+	if err != nil {
+		return err
+	}
+	cfg.APIKey = plain
+	return nil
 }
 
 // resolveRuntimeRoot 根据 monitor file 的父通道 PSC 在运行时配置中查找已解析的 ServiceConfig。
@@ -940,6 +1003,16 @@ func (h *Handler) AdminGetMonitorLogs(c *gin.Context) {
 	defer cancel()
 
 	db := h.storage.WithContext(queryCtx)
+	secrets := make(map[pscm]string, len(keys))
+	if appCfg != nil {
+		for _, m := range appCfg.Monitors {
+			candidate := pscm{m.Provider, m.Service, m.Channel, m.Model}
+			if _, ok := secrets[candidate]; ok || strings.TrimSpace(m.APIKey) == "" {
+				continue
+			}
+			secrets[candidate] = m.APIKey
+		}
+	}
 	logs := make([]adminMonitorLogItem, 0, limit)
 	for _, k := range keys {
 		// admin logs 故意保留 PSCM 查询：孤儿/legacy（改名前）历史仍可按旧展示名查到
@@ -952,6 +1025,10 @@ func (h *Handler) AdminGetMonitorLogs(c *gin.Context) {
 			return
 		}
 		for _, r := range records {
+			errorDetail := r.ErrorDetail
+			if secret := secrets[k]; secret != "" {
+				errorDetail = probe.RedactSecrets(errorDetail, secret)
+			}
 			logs = append(logs, adminMonitorLogItem{
 				ID:          r.ID,
 				Provider:    r.Provider,
@@ -963,7 +1040,7 @@ func (h *Handler) AdminGetMonitorLogs(c *gin.Context) {
 				HTTPCode:    r.HttpCode,
 				Latency:     r.Latency,
 				Timestamp:   r.Timestamp,
-				ErrorDetail: r.ErrorDetail,
+				ErrorDetail: errorDetail,
 			})
 		}
 	}

@@ -7,13 +7,25 @@ import (
 	"strconv"
 	"strings"
 
+	"monitor/internal/apikey"
 	"monitor/internal/logger"
 )
+
+// applyAdminEnvOverrides 应在合并 monitors.d 之前调用，保证加密 Key 能在加载外部监测文件时可用。
+func (c *AppConfig) applyAdminEnvOverrides() {
+	if value := strings.TrimSpace(os.Getenv("MONITOR_ADMIN_SESSION_SECRET")); value != "" {
+		c.Admin.SessionSecret = value
+	}
+	if value := strings.TrimSpace(os.Getenv("MONITOR_ADMIN_ENCRYPTION_KEY")); value != "" {
+		c.Admin.EncryptionKey = value
+	}
+}
 
 // ApplyEnvOverrides 应用环境变量覆盖
 // API Key 格式：MONITOR_<PROVIDER>_<SERVICE>_<CHANNEL>_API_KEY（优先）或 MONITOR_<PROVIDER>_<SERVICE>_API_KEY（向后兼容）
 // 存储配置格式：MONITOR_STORAGE_TYPE, MONITOR_POSTGRES_HOST 等
 func (c *AppConfig) applyEnvOverrides() {
+	c.applyAdminEnvOverrides()
 	// PublicBaseURL 环境变量覆盖
 	if envBaseURL := os.Getenv("MONITOR_PUBLIC_BASE_URL"); envBaseURL != "" {
 		c.PublicBaseURL = envBaseURL
@@ -92,6 +104,40 @@ func (c *AppConfig) applyEnvOverrides() {
 			m.APIKey = envVal
 		}
 	}
+}
+
+// decryptMonitorAPIKeys 解密 monitors.d 中的 API Key。密文只作为持久化形态，
+// 运行时继续使用 ServiceConfig.APIKey，避免改变探测器和变更请求索引的接口。
+func (c *AppConfig) decryptMonitorAPIKeys(monitors []ServiceConfig) error {
+	needsDecrypt := false
+	for _, monitor := range monitors {
+		if strings.TrimSpace(monitor.APIKeyEncrypted) != "" {
+			needsDecrypt = true
+			break
+		}
+	}
+	if !needsDecrypt {
+		return nil
+	}
+	if strings.TrimSpace(c.Admin.EncryptionKey) == "" {
+		return fmt.Errorf("监测配置包含 api_key_encrypted，但未设置 MONITOR_ADMIN_ENCRYPTION_KEY")
+	}
+	cipher, err := apikey.NewKeyCipher(c.Admin.EncryptionKey)
+	if err != nil {
+		return fmt.Errorf("创建管理员 API Key 解密器失败: %w", err)
+	}
+	for i := range monitors {
+		if strings.TrimSpace(monitors[i].APIKeyEncrypted) == "" {
+			continue
+		}
+		plain, err := cipher.Decrypt(monitors[i].APIKeyEncrypted)
+		if err != nil {
+			return fmt.Errorf("解密监测项 API Key 失败（provider=%s service=%s channel=%s）: %w",
+				monitors[i].Provider, monitors[i].Service, monitors[i].Channel, err)
+		}
+		monitors[i].APIKey = plain
+	}
+	return nil
 }
 
 // resolveTemplateForMonitor 加载单个 monitor 的 template 引用并填充 ServiceConfig 中为空的字段。
@@ -269,6 +315,7 @@ func (c *AppConfig) clone() *AppConfig {
 		BatchQueryMaxKeys:      c.BatchQueryMaxKeys,
 		CacheTTL:               c.CacheTTL, // CacheTTL 是值类型，直接复制
 		Storage:                c.Storage,
+		Admin:                  c.Admin,
 		Server: ServerConfig{
 			TrustedPlatform: c.Server.TrustedPlatform,
 			// 切片必须深拷贝：热更新期间新旧配置并存，共享 backing array 会让一份的改动串到另一份

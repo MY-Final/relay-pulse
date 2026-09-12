@@ -45,7 +45,7 @@ import { useMonitorAdmin } from './useMonitorAdmin';
 let hook: ReturnType<typeof useMonitorAdmin>;
 function Harness() {
   // eslint-disable-next-line react-hooks/globals -- 测试 harness：把 hook 返回值暴露给用例断言，无并发渲染
-  hook = useMonitorAdmin('test-token');
+  hook = useMonitorAdmin(true);
   return null;
 }
 

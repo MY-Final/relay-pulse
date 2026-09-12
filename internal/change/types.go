@@ -40,7 +40,8 @@ type ChangeRequest struct {
 	ProposedChanges string `json:"proposed_changes"` // JSON: {field: newValue} patch
 
 	// 新 API Key（如有变更）
-	NewKeyEncrypted   string `json:"new_key_encrypted,omitempty"`
+	// NewKeyEncrypted 仅供服务端应用变更时解密，绝不进入任何 API 响应。
+	NewKeyEncrypted   string `json:"-"`
 	NewKeyFingerprint string `json:"new_key_fingerprint,omitempty"`
 	NewKeyLast4       string `json:"new_key_last4,omitempty"`
 

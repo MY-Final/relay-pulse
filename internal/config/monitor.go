@@ -155,7 +155,11 @@ type ServiceConfig struct {
 	// 不配置时使用系统环境变量代理（HTTP_PROXY/HTTPS_PROXY）
 	Proxy string `yaml:"proxy" json:"proxy,omitempty"` // admin monitor CRUD 需要 round-trip；公共 API 不直接序列化 ServiceConfig
 
-	APIKey string `yaml:"api_key" json:"api_key,omitempty"` // admin monitor CRUD 需要 round-trip；公共 API 不直接序列化 ServiceConfig
+	APIKey          string `yaml:"api_key" json:"api_key,omitempty"` // 兼容旧版明文配置；admin 新写入会转为密文
+	APIKeyEncrypted string `yaml:"api_key_encrypted,omitempty" json:"-"`
+	APIKeyPresent   bool   `yaml:"-" json:"api_key_present,omitempty"`
+	APIKeyMasked    string `yaml:"-" json:"api_key_masked,omitempty"`
+	ClearAPIKey     bool   `yaml:"-" json:"clear_api_key,omitempty"`
 }
 
 // disabledProviderConfig 批量禁用指定 provider 的配置

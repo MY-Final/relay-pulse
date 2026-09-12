@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { apiGet, apiPost, apiPut, apiDelete, ApiError } from '../utils/apiClient';
+import {
+  apiGet, apiPost, apiPut, apiDelete, ApiError,
+  setAdminCSRFToken, setAdminSessionExpiredHandler,
+} from '../utils/apiClient';
 import type {
   AdminSubmission,
   AdminListResponse,
@@ -8,14 +11,11 @@ import type {
   SubmissionStatus,
 } from '../types/onboarding';
 
-const TOKEN_KEY = 'relay-pulse-admin-token';
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function useAdmin() {
-  const [token, setTokenState] = useState<string>(() => {
-    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState(!!token);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   // List state
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
@@ -29,28 +29,64 @@ export function useAdmin() {
 
   // Detail state
   const [selectedSubmission, setSelectedSubmission] = useState<AdminSubmission | null>(null);
-  const [selectedApiKey, setSelectedApiKey] = useState<string>('');
-  const [showApiKey, setShowApiKey] = useState(false);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [suggestedChannel, setSuggestedChannel] = useState<string>('');
 
-  const authHeaders = useCallback((): HeadersInit => ({
-    Authorization: `Bearer ${token}`,
-  }), [token]);
+  const authHeaders = useCallback((): HeadersInit => ({}), []);
 
-  const setToken = useCallback((t: string) => {
-    setTokenState(t);
-    try { localStorage.setItem(TOKEN_KEY, t); } catch { /* ignore */ }
-    setIsAuthenticated(!!t);
+  const login = useCallback(async (username: string, password: string) => {
+    setError(null);
+    try {
+      const resp = await apiPost<{ authenticated: boolean; csrf_token?: string }>(
+        '/api/admin/login',
+        { username, password },
+      );
+      setAdminCSRFToken(resp.csrf_token || '');
+      setIsAuthenticated(true);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '登录失败');
+      throw e;
+    }
   }, []);
 
-  const logout = useCallback(() => {
-    setTokenState('');
-    try { localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
-    setIsAuthenticated(false);
+  const logout = useCallback(async () => {
+    try {
+      await apiPost('/api/admin/logout', {});
+    } finally {
+      setAdminCSRFToken('');
+      setIsAuthenticated(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAdminCSRFToken('');
+      setIsAuthenticated(false);
+    };
+    setAdminSessionExpiredHandler(handleSessionExpired);
+    return () => setAdminSessionExpiredHandler(null);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    apiGet<{ authenticated: boolean; csrf_token?: string }>('/api/admin/me')
+      .then(resp => {
+        if (!active) return;
+        setAdminCSRFToken(resp.csrf_token || '');
+        setIsAuthenticated(!!resp.authenticated);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAdminCSRFToken('');
+        setIsAuthenticated(false);
+      })
+      .finally(() => {
+        if (active) setIsCheckingAuth(false);
+      });
+    return () => { active = false; };
   }, []);
 
   // 输入做 debounce：稳定 300ms 后才更新驱动请求的值，并同时回到第 1 页。
@@ -66,7 +102,7 @@ export function useAdmin() {
 
   // Fetch list
   const fetchList = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     setError(null);
 
@@ -87,14 +123,14 @@ export function useAdmin() {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         setIsAuthenticated(false);
-        setError('认证失败，请重新输入 token');
+        setError('登录已失效，请重新登录');
       } else {
         setError(e instanceof ApiError ? e.message : '加载失败');
       }
     } finally {
       setIsLoading(false);
     }
-  }, [token, statusFilter, page, debouncedSearchQuery, authHeaders]);
+  }, [isAuthenticated, statusFilter, page, debouncedSearchQuery, authHeaders]);
 
   // Auto-fetch on filter/page change
   useEffect(() => {
@@ -108,7 +144,7 @@ export function useAdmin() {
   // 为禁用控件，而不是静默回退到空数组。沿用 useMonitorAdmin 的"吞错返回 []"
   // 会让管理员看到"该服务类型暂无模板"的假象，掩盖配置故障。
   const fetchTemplates = useCallback(async (serviceType?: string): Promise<string[]> => {
-    if (!token) return [];
+    if (!isAuthenticated) return [];
 
     const normalized = serviceType?.trim() ?? '';
     const qs = normalized ? `?service_type=${encodeURIComponent(normalized)}` : '';
@@ -117,11 +153,11 @@ export function useAdmin() {
       { headers: authHeaders() },
     );
     return resp.templates ?? [];
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Fetch detail
   const fetchDetail = useCallback(async (publicId: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     detailAbortRef.current?.abort(); // 中止上一条在途详情，防止迟到响应覆盖新选中项
     const ac = new AbortController();
     detailAbortRef.current = ac;
@@ -134,8 +170,6 @@ export function useAdmin() {
       );
       if (ac.signal.aborted) return;
       setSelectedSubmission(resp.submission);
-      setSelectedApiKey(resp.api_key);
-      setShowApiKey(false);
     } catch (e) {
       if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
       setError(e instanceof ApiError ? e.message : '加载详情失败');
@@ -143,7 +177,7 @@ export function useAdmin() {
       // 仅当自己仍是最新一次请求时才清 loading：被后续请求取代的旧请求不得清掉新请求的 loading 态
       if (detailAbortRef.current === ac) setDetailLoadingId(null);
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // 供切 tab / 返回列表时中止在途详情请求，避免迟到响应写回已离开的视图
   const cancelDetail = useCallback(() => {
@@ -154,7 +188,7 @@ export function useAdmin() {
 
   // Update submission
   const updateSubmission = useCallback(async (publicId: string, updates: Record<string, unknown>) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -168,11 +202,11 @@ export function useAdmin() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '更新失败');
     }
-  }, [token, authHeaders, fetchList]);
+  }, [isAuthenticated, authHeaders, fetchList]);
 
   // Reject
   const rejectSubmission = useCallback(async (publicId: string, note: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -182,11 +216,11 @@ export function useAdmin() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '驳回失败');
     }
-  }, [token, authHeaders, fetchList]);
+  }, [isAuthenticated, authHeaders, fetchList]);
 
   // Test — inline probe, returns result synchronously
   const testSubmission = useCallback(async (publicId: string): Promise<OnboardingTestResult | null> => {
-    if (!token) return null;
+    if (!isAuthenticated) return null;
     setError(null);
 
     try {
@@ -200,11 +234,11 @@ export function useAdmin() {
       setError(e instanceof ApiError ? e.message : '测试失败');
       return null;
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Delete
   const deleteSubmission = useCallback(async (publicId: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -214,11 +248,11 @@ export function useAdmin() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '删除失败');
     }
-  }, [token, authHeaders, fetchList]);
+  }, [isAuthenticated, authHeaders, fetchList]);
 
   // Publish
   const publishSubmission = useCallback(async (publicId: string, board = 'hot') => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
     setSuggestedChannel('');
 
@@ -235,13 +269,13 @@ export function useAdmin() {
       }
       setError(e instanceof ApiError ? e.message : '上架失败');
     }
-  }, [token, authHeaders, fetchList]);
+  }, [isAuthenticated, authHeaders, fetchList]);
 
   return {
     // Auth
-    token,
     isAuthenticated,
-    setToken,
+    isCheckingAuth,
+    login,
     logout,
 
     // List
@@ -258,9 +292,6 @@ export function useAdmin() {
 
     // Detail
     selectedSubmission,
-    selectedApiKey,
-    showApiKey,
-    setShowApiKey,
     detailLoadingId,
     fetchDetail,
     cancelDetail,

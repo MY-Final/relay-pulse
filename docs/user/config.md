@@ -16,6 +16,13 @@ interval: "1m"           # 巡检间隔（支持 Go duration 格式）
 slow_latency: "5s"       # 慢请求阈值
 timeout: "10s"           # 请求超时时间
 
+# 管理后台（单管理员账号）
+admin:
+  enabled: true
+  username: "admin"
+  password_hash: "$2a$..."  # 只填 bcrypt 哈希：go run ./cmd/adminhash
+  session_ttl: "24h"
+
 # 重试配置（可选，全局默认值）
 retry: 2                 # 额外重试次数（默认 0，不重试）
 retry_base_delay: "200ms"  # 退避基准间隔
@@ -110,8 +117,10 @@ monitors:
     sponsor: "团队自有"
     base_url: "https://api.88code.com"
     template: "cc-haiku-arith"
-    api_key: "sk-xxx"
+    api_key_encrypted: "<后台保存的 AES-256-GCM 密文>"
 ```
+
+手工维护的历史文件仍可使用明文 `api_key`，系统会兼容读取；后台新保存的 Key 会写入 `api_key_encrypted`。
 
 **与 `config.yaml` 的关系**：
 
@@ -121,6 +130,29 @@ monitors:
 - 删除走**软归档**：通过 admin API 删除时，文件被移到 `monitors.d/.archive/` 而非直接清除，方便回溯。
 
 **建议实践**：`config.yaml` 只保留全局设置与少量"硬编码"核心通道，其余通道统一走 `monitors.d/`，便于通过管理后台或自助收录流程增删改。
+
+### 管理后台认证与密钥安全
+
+管理后台地址为 `/admin`。启用 `admin.enabled` 后，使用单管理员账号密码登录；密码只保存 bcrypt 哈希，不保存明文密码。生成哈希：
+
+```bash
+go run ./cmd/adminhash
+```
+
+生产环境通过环境变量注入会话签名密钥和监测 API Key 加密密钥：
+
+```bash
+export MONITOR_ADMIN_SESSION_SECRET="$(openssl rand -hex 32)"
+export MONITOR_ADMIN_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+```
+
+`MONITOR_ADMIN_SESSION_SECRET` 用于签发 HttpOnly、SameSite=Lax 会话 Cookie；`MONITOR_ADMIN_ENCRYPTION_KEY` 必须是 32 字节（64 个 hex 字符），用于 AES-256-GCM 加密后台新保存的监测 API Key。两者都是启动期环境变量，修改后需要重启服务；密钥丢失会使既有会话或后台加密 Key 无法使用。
+
+后台保存到 `monitors.d/` 的新 API Key 只写入 `api_key_encrypted`，详情页只显示末四位掩码。编辑时留空表示保留原 Key，使用“清除 Key”才会删除。环境变量注入的 API Key 优先级最高，旧配置中的明文 `api_key` 仍可读取。
+
+后台写操作使用会话 Cookie + CSRF token。旧脚本仍可用 `Authorization: Bearer <onboarding.admin_token>` 访问兼容接口；Bearer 请求不需要 CSRF header。
+
+当 `admin.enabled=true` 时，`username`、有效的 bcrypt `password_hash`、`MONITOR_ADMIN_SESSION_SECRET` 和 `MONITOR_ADMIN_ENCRYPTION_KEY` 缺一不可，否则服务拒绝启动。`monitors.d/` 是后台 CRUD 的唯一写入目录；若历史通道还在 `config.yaml` 的 `monitors:` 中，请先运行 `go run ./cmd/migrate`，避免同一 PSC 重复。
 
 ## 配置项详解
 
@@ -838,7 +870,7 @@ async function sendTelegramMessage(env, event) {
 ```yaml
 onboarding:
   enabled: true
-  admin_token: ""           # 管理后台 Bearer token（必填，建议走环境变量）
+  admin_token: ""           # 兼容旧 Bearer token（可选；新后台使用 admin 账号密码）
   encryption_key: ""        # API Key 加密密钥（32 字节 hex，建议走 ONBOARDING_ENCRYPTION_KEY）
   proof_secret: ""          # 测试证明 HMAC 密钥（必填，建议走环境变量）
   proof_ttl: "5m"           # 测试证明有效期
@@ -861,8 +893,8 @@ change_requests:
 #### `onboarding.admin_token`
 
 - **类型**: string
-- **必填**: 启用时必填
-- **说明**: `/api/admin/*` 系列端点的 Bearer token。生产环境建议用环境变量 `MONITOR_ONBOARDING_ADMIN_TOKEN` 注入，避免落在 config.yaml 里。
+- **必填**: 使用旧 Bearer 脚本时必填
+- **说明**: 兼容访问 `/api/admin/*` 系列端点的 Bearer token。新后台优先使用 `admin` 配置的账号密码；生产环境建议把该 token 通过环境变量注入，避免落在 config.yaml 里。
 
 #### `onboarding.encryption_key`
 

@@ -35,6 +35,20 @@ export class ApiError extends Error {
   }
 }
 
+let adminCSRFToken = '';
+
+let adminSessionExpiredHandler: (() => void) | null = null;
+
+/** 注册管理员会话失效回调；回调只保存在内存中。 */
+export function setAdminSessionExpiredHandler(handler: (() => void) | null): void {
+  adminSessionExpiredHandler = handler;
+}
+
+/** 设置当前管理员会话的 CSRF token；token 只保存在内存中。 */
+export function setAdminCSRFToken(token: string): void {
+  adminCSRFToken = token;
+}
+
 function buildApiUrl(path: string): string {
   // 绝对 URL 直接使用（如 notifier 服务地址）
   if (/^https?:\/\//i.test(path)) {
@@ -121,10 +135,14 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<T> {
       const errorText = await response.text();
       const parsed = parseErrorPayload(errorText);
 
-      throw new ApiError(
+      const apiError = new ApiError(
         extractErrorMessage(errorText, statusFallback(response.status)),
         { status: response.status, code: parsed.code, data: parsed.raw },
       );
+      if (response.status === 401 && path.startsWith('/api/admin/')) {
+        adminSessionExpiredHandler?.();
+      }
+      throw apiError;
     }
 
     const text = await response.text();
@@ -151,10 +169,20 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   const idempotent = method === 'GET' || method === 'HEAD';
   const maxAttempts = idempotent ? 2 : 1;
 
+  const headers = new Headers(init.headers);
+  if (!idempotent && adminCSRFToken && !headers.has('X-CSRF-Token')) {
+    headers.set('X-CSRF-Token', adminCSRFToken);
+  }
+  const requestInit: RequestInit = {
+    ...init,
+    headers,
+    credentials: 'include',
+  };
+
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      return await performRequest<T>(path, init);
+      return await performRequest<T>(path, requestInit);
     } catch (error) {
       lastError = error;
       const retriable =

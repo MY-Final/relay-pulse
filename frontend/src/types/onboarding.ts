@@ -173,7 +173,6 @@ export interface AdminSubmission {
   price_min: number;
   price_max: number;
   base_url: string;
-  api_key_encrypted: string;
   api_key_fingerprint: string;
   api_key_last4: string;
   test_job_id: string;
@@ -203,5 +202,6 @@ export interface AdminListResponse {
 /** 管理员详情响应 */
 export interface AdminDetailResponse {
   submission: AdminSubmission;
-  api_key: string;
+  api_key_present: boolean;
+  api_key_masked: string;
 }

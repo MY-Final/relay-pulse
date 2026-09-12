@@ -6,11 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
+	"monitor/internal/apikey"
 	"monitor/internal/logger"
 )
 
 // Normalize 规范化配置（填充默认值等）
 func (c *AppConfig) normalize() error {
+	if err := c.normalizeAdminConfig(); err != nil {
+		return err
+	}
+
 	// 1. 全局时间配置（interval, slow_latency, timeout, retry 系列）
 	if err := c.normalizeGlobalTimings(); err != nil {
 		return err
@@ -53,6 +60,40 @@ func (c *AppConfig) normalize() error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *AppConfig) normalizeAdminConfig() error {
+	if !c.Admin.Enabled {
+		return nil
+	}
+
+	if strings.TrimSpace(c.Admin.Username) == "" {
+		return fmt.Errorf("admin.username 不能为空")
+	}
+	if strings.TrimSpace(c.Admin.PasswordHash) == "" {
+		return fmt.Errorf("admin.password_hash 不能为空，请使用 cmd/adminhash 生成")
+	}
+	if _, err := bcrypt.Cost([]byte(c.Admin.PasswordHash)); err != nil {
+		return fmt.Errorf("admin.password_hash 不是有效的 bcrypt 哈希: %w", err)
+	}
+	if strings.TrimSpace(c.Admin.SessionSecret) == "" {
+		return fmt.Errorf("MONITOR_ADMIN_SESSION_SECRET 不能为空")
+	}
+	if strings.TrimSpace(c.Admin.EncryptionKey) == "" {
+		return fmt.Errorf("MONITOR_ADMIN_ENCRYPTION_KEY 不能为空")
+	}
+	if _, err := apikey.NewKeyCipher(c.Admin.EncryptionKey); err != nil {
+		return fmt.Errorf("MONITOR_ADMIN_ENCRYPTION_KEY 无效: %w", err)
+	}
+	if strings.TrimSpace(c.Admin.SessionTTL) == "" {
+		c.Admin.SessionTTL = "24h"
+	}
+	d, err := time.ParseDuration(strings.TrimSpace(c.Admin.SessionTTL))
+	if err != nil || d <= 0 {
+		return fmt.Errorf("admin.session_ttl 必须是正的 Go duration")
+	}
+	c.Admin.SessionTTLDuration = d
 	return nil
 }
 

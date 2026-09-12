@@ -28,6 +28,7 @@ docker compose up -d
 - Web 界面：http://localhost:8080
 - API：http://localhost:8080/api/status
 - 健康检查：http://localhost:8080/health
+- 管理后台：http://localhost:8080/admin（需在配置中启用管理员账号）
 
 ## 常用命令
 
@@ -56,6 +57,7 @@ docker compose down -v          # 停止并删除数据卷 ⚠️ 会丢失历�
 | 能力 | 参考文档 |
 |------|----------|
 | 用环境变量注入 API Key（生产推荐） | [docs/user/config.md](docs/user/config.md) · "环境变量覆盖" 章节 |
+| 管理后台账号密码、Cookie 会话和 API Key 加密 | [docs/user/config.md](docs/user/config.md) · "管理后台认证与密钥安全" 章节 |
 | 配置热更新（改文件自动重载，无需重启） | [docs/user/config.md](docs/user/config.md) · "热更新" 章节 |
 | 切到 PostgreSQL 存储 | [docs/user/deploy-postgres.md](docs/user/deploy-postgres.md) |
 | 资源限制 / 日志轮转 / Cloudflare 反代 | [docs/user/docker.md](docs/user/docker.md) |

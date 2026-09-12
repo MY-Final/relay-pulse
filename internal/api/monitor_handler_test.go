@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"monitor/internal/apikey"
 	"monitor/internal/config"
 )
 
@@ -87,6 +88,34 @@ func TestAdminCreateMonitorGeneratesAndExposesIDs(t *testing.T) {
 	}
 	if !strings.Contains(w2.Body.String(), `"channel_id"`) {
 		t.Errorf("get response wire missing channel_id field: %s", w2.Body.String())
+	}
+}
+
+func TestAdminMonitorViewMasksAPIKey(t *testing.T) {
+	cipher, err := apikey.NewKeyCipher(strings.Repeat("ef", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, err := cipher.Encrypt("sk-admin-secret-1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{adminKeyCipher: cipher}
+	view := h.adminMonitorView(&config.MonitorFile{Monitors: []config.ServiceConfig{{
+		Provider: "acme", Service: "cc", Channel: "vip", APIKeyEncrypted: secret,
+	}}})
+
+	data, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := string(data)
+	if strings.Contains(wire, "sk-admin-secret-1234") || strings.Contains(wire, secret) {
+		t.Fatalf("admin monitor view leaked key material: %s", wire)
+	}
+	monitor := view.Monitors[0]
+	if !monitor.APIKeyPresent || monitor.APIKeyMasked != "********1234" || monitor.APIKey != "" || monitor.APIKeyEncrypted != "" {
+		t.Fatalf("unexpected masked monitor view: %+v", monitor)
 	}
 }
 

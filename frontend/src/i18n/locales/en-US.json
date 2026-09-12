@@ -604,8 +604,10 @@
     "logout": "Logout",
     "auth": {
       "title": "Admin Authentication",
-      "tokenLabel": "Admin Token",
-      "tokenPlaceholder": "Enter admin token",
+      "usernameLabel": "Admin Username",
+      "usernamePlaceholder": "Enter admin username",
+      "passwordLabel": "Admin Password",
+      "passwordPlaceholder": "Enter admin password",
       "login": "Login",
       "submitting": "Verifying..."
     },
@@ -662,6 +664,7 @@
       "hideKey": "Hide API Key",
       "copyKey": "Copy API Key",
       "copiedKey": "Copied",
+      "clearKey": "Clear Key",
       "probe": "Probe",
       "probeResponseBody": "Response body",
       "probing": "Probing...",

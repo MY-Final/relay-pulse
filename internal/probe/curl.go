@@ -59,6 +59,12 @@ func redactSecrets(s string, secrets []string) string {
 	return s
 }
 
+// RedactSecrets 脱敏一段可能包含 API Key 的错误或日志文本。
+// 管理后台读取历史日志时使用它，避免把上游回显的密钥重新暴露给浏览器。
+func RedactSecrets(s, apiKey string) string {
+	return redactSecrets(s, secretVariants(apiKey))
+}
+
 // buildCurlCommand 把一次实际发出的探测请求序列化成一条可复制的 curl 命令，
 // 供管理员在测试失败时复制给通道方复现排障。
 //

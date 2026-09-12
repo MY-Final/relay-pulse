@@ -604,8 +604,10 @@
     "logout": "Выйти",
     "auth": {
       "title": "Аутентификация администратора",
-      "tokenLabel": "Токен администратора",
-      "tokenPlaceholder": "Введите токен администратора",
+      "usernameLabel": "Имя администратора",
+      "usernamePlaceholder": "Введите имя администратора",
+      "passwordLabel": "Пароль администратора",
+      "passwordPlaceholder": "Введите пароль администратора",
       "login": "Войти",
       "submitting": "Проверка..."
     },
@@ -662,6 +664,7 @@
       "hideKey": "Скрыть API Key",
       "copyKey": "Копировать API Key",
       "copiedKey": "Скопировано",
+      "clearKey": "Очистить ключ",
       "probe": "Тест",
       "probeResponseBody": "Тело ответа",
       "probing": "Тестирование...",

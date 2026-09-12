@@ -55,8 +55,9 @@ type Submission struct {
 	PriceMax       float64 `json:"price_max"`
 
 	// 接入信息
-	BaseURL           string `json:"base_url"`
-	APIKeyEncrypted   string `json:"api_key_encrypted"`
+	BaseURL string `json:"base_url"`
+	// APIKeyEncrypted 仅供服务端解密使用，绝不进入任何 API 响应。
+	APIKeyEncrypted   string `json:"-"`
 	APIKeyFingerprint string `json:"api_key_fingerprint"`
 	APIKeyLast4       string `json:"api_key_last4"`
 

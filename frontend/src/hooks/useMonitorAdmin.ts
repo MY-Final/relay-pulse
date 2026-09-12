@@ -29,7 +29,7 @@ export interface ProbeResult {
   viaProxy: boolean;
 }
 
-export function useMonitorAdmin(token: string) {
+export function useMonitorAdmin(isAuthenticated: boolean) {
   const [monitors, setMonitors] = useState<MonitorSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,9 +58,7 @@ export function useMonitorAdmin(token: string) {
   const [probeResults, setProbeResults] = useState<Record<string, ProbeResult>>({});
   const [probeErrors, setProbeErrors] = useState<Record<string, string>>({});
 
-  const authHeaders = useCallback((): HeadersInit => ({
-    Authorization: `Bearer ${token}`,
-  }), [token]);
+  const authHeaders = useCallback((): HeadersInit => ({}), []);
 
   // 输入做 debounce：稳定 300ms 后才更新驱动请求的值（与 useAdmin 的申请列表同规格），
   // 避免每个键入都打一次列表接口。
@@ -73,7 +71,7 @@ export function useMonitorAdmin(token: string) {
 
   // Fetch list
   const fetchList = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     // 中止上一条在途列表请求：宽关键词（匹配多、后端要批量注入探测快照）比窄关键词慢，
     // 不中止会让迟到的旧响应覆盖新筛选结果（表现为输入后列表纹丝不动，需手动刷新）。
     listAbortRef.current?.abort();
@@ -103,7 +101,7 @@ export function useMonitorAdmin(token: string) {
       // 只有仍是当前请求时才收起加载态，被后续请求顶掉的旧请求不碰
       if (listAbortRef.current === ac) setIsLoading(false);
     }
-  }, [token, boardFilter, statusFilter, debouncedSearchQuery, authHeaders]);
+  }, [isAuthenticated, boardFilter, statusFilter, debouncedSearchQuery, authHeaders]);
 
   // 写操作（create/update/delete/toggle）成功后的列表刷新必须用最新筛选参数：
   // 它们 await 期间用户可能已改搜索词，闭包捕获的旧 fetchList 会按过期条件取数、
@@ -133,12 +131,12 @@ export function useMonitorAdmin(token: string) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载即取数：fetchList 在 await 前同步置 loading/清错误为有意，非派生 state
-    if (token) fetchList();
-  }, [token, fetchList]);
+    if (isAuthenticated) fetchList();
+  }, [isAuthenticated, fetchList]);
 
   // Fetch templates
   const fetchTemplates = useCallback(async (): Promise<string[]> => {
-    if (!token) return [];
+    if (!isAuthenticated) return [];
 
     try {
       const resp = await apiGet<{ templates: string[] }>(
@@ -149,11 +147,11 @@ export function useMonitorAdmin(token: string) {
     } catch {
       return [];
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Fetch detail
   const fetchDetail = useCallback(async (key: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     detailAbortRef.current?.abort(); // 中止上一条在途详情，防止迟到响应覆盖新选中项
     const ac = new AbortController();
     detailAbortRef.current = ac;
@@ -180,7 +178,7 @@ export function useMonitorAdmin(token: string) {
     } finally {
       if (detailAbortRef.current === ac) setDetailLoadingId(null);
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // 供切 tab / 返回列表时中止在途详情请求
   const cancelDetail = useCallback(() => {
@@ -191,7 +189,7 @@ export function useMonitorAdmin(token: string) {
 
   // Create
   const createMonitor = useCallback(async (file: MonitorFile) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -206,11 +204,11 @@ export function useMonitorAdmin(token: string) {
       setError(msg);
       throw e;
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Update
   const updateMonitor = useCallback(async (key: string, file: MonitorFile, revision: number) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -228,11 +226,11 @@ export function useMonitorAdmin(token: string) {
       setError(msg);
       throw e;
     }
-  }, [token, authHeaders, fetchDetail]);
+  }, [isAuthenticated, authHeaders, fetchDetail]);
 
   // Delete
   const deleteMonitor = useCallback(async (key: string) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -243,11 +241,11 @@ export function useMonitorAdmin(token: string) {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '删除失败');
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Toggle
   const toggleMonitor = useCallback(async (key: string, field: 'disabled' | 'hidden', value: boolean) => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setError(null);
 
     try {
@@ -261,14 +259,14 @@ export function useMonitorAdmin(token: string) {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '切换失败');
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   const probeMonitor = useCallback(async (
     key: string,
     overrides?: { template?: string; base_url?: string; api_key?: string },
     targetModel = '',
   ): Promise<ProbeResult | null> => {
-    if (!token) return null;
+    if (!isAuthenticated) return null;
     const targetKey = targetModel || PARENT_TARGET_KEY;
     setProbingTargets(prev => ({ ...prev, [targetKey]: true }));
     setProbeErrors(prev => {
@@ -313,7 +311,7 @@ export function useMonitorAdmin(token: string) {
     } finally {
       setProbingTargets(prev => ({ ...prev, [targetKey]: false }));
     }
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   // Logs：拉取某监测项的探测历史记录（按 timestamp 倒序）。
   // since: Go duration (默认 "1h") 或 RFC3339；limit: 默认 200，上限 1000；model: 可选过滤。
@@ -321,7 +319,7 @@ export function useMonitorAdmin(token: string) {
     key: string,
     opts?: { since?: string; limit?: number; model?: string },
   ): Promise<ProbeHistoryEntry[]> => {
-    if (!token) return [];
+    if (!isAuthenticated) return [];
 
     const params = new URLSearchParams();
     if (opts?.since) params.set('since', opts.since);
@@ -334,7 +332,7 @@ export function useMonitorAdmin(token: string) {
       { headers: authHeaders() },
     );
     return resp.logs || [];
-  }, [token, authHeaders]);
+  }, [isAuthenticated, authHeaders]);
 
   return {
     monitors,

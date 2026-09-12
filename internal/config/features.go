@@ -111,6 +111,19 @@ type OnboardingConfig struct {
 	ContactInfo string `yaml:"contact_info" json:"contact_info"`
 }
 
+// AdminConfig 管理后台认证与监测 API Key 加密配置。
+// 密钥字段只从环境变量读取，不参与 YAML/JSON 序列化。
+type AdminConfig struct {
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
+	Username     string `yaml:"username" json:"username"`
+	PasswordHash string `yaml:"password_hash" json:"-"`
+	SessionTTL   string `yaml:"session_ttl" json:"session_ttl"`
+
+	SessionTTLDuration time.Duration `yaml:"-" json:"-"`
+	SessionSecret      string        `yaml:"-" json:"-"`
+	EncryptionKey      string        `yaml:"-" json:"-"`
+}
+
 // ChangeRequestConfig 变更请求功能配置（独立于 Onboarding，共享 admin_token 和 encryption_key）
 type ChangeRequestConfig struct {
 	// 是否启用变更请求功能（默认禁用）

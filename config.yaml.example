@@ -8,6 +8,14 @@
 
 interval: "15m"
 
+# 管理后台配置。启用后请先生成密码哈希：go run ./cmd/adminhash
+# 再通过环境变量提供两个高熵密钥，详见 docs/user/config.md。
+admin:
+  enabled: false
+  username: "admin"
+  password_hash: ""
+  session_ttl: "24h"
+
 monitors:
   # ==================== 号池1 ====================
 

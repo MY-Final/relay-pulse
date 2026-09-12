@@ -12,6 +12,8 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -253,7 +255,8 @@ retryLoop:
 				}
 				logger.Error("probe", "请求失败（不重试）",
 					"provider", cfg.Provider, "service", cfg.Service, "channel", cfg.Channel, "model", cfg.Model,
-					"attempt", attempt+1, "max_attempts", maxAttempts, "error", err)
+					"attempt", attempt+1, "max_attempts", maxAttempts,
+					"error", redactProbeSecret(err.Error(), cfg.APIKey))
 				result.Error = err
 				result.Status = 0
 				result.SubStatus = storage.SubStatusNetworkError
@@ -264,7 +267,8 @@ retryLoop:
 			// 其他网络错误，设置结果并继续重试
 			logger.Error("probe", "请求失败",
 				"provider", cfg.Provider, "service", cfg.Service, "channel", cfg.Channel, "model", cfg.Model,
-				"attempt", attempt+1, "max_attempts", maxAttempts, "error", err)
+				"attempt", attempt+1, "max_attempts", maxAttempts,
+				"error", redactProbeSecret(err.Error(), cfg.APIKey))
 			result.Error = err
 			result.Status = 0
 			result.SubStatus = storage.SubStatusNetworkError
@@ -438,7 +442,7 @@ retryLoop:
 			snippet = snippet[:200] + "..."
 		}
 		if snippet != "" {
-			logArgs = append(logArgs, "response", snippet)
+			logArgs = append(logArgs, "response", redactProbeSecret(snippet, cfg.APIKey))
 		}
 	}
 	logger.Info("probe", "探测完成", logArgs...)
@@ -453,8 +457,9 @@ retryLoop:
 				snippet = strings.TrimSpace(string(lastBodyBytes))
 			}
 		} else if result.Error != nil {
-			snippet = result.Error.Error()
+			snippet = redactProbeSecret(result.Error.Error(), cfg.APIKey)
 		}
+		snippet = redactProbeSecret(snippet, cfg.APIKey)
 		if len(snippet) > maxErrorDetailLen {
 			snippet = snippet[:maxErrorDetailLen]
 		}
@@ -479,7 +484,7 @@ func (p *Prober) logFailedProbe(cfg *config.ServiceConfig, result *ProbeResult, 
 				"provider", cfg.Provider, "service", cfg.Service, "channel", cfg.Channel, "model", cfg.Model,
 				"body_bytes", len(bodyBytes), "agg_len", len(aggText), "keyword_len", len(cfg.SuccessContains))
 		} else {
-			snippet := trimmed
+			snippet := redactProbeSecret(trimmed, cfg.APIKey)
 			if len(snippet) > maxSnippetLen {
 				snippet = snippet[:maxSnippetLen] + "... (truncated)"
 			}
@@ -498,9 +503,26 @@ func (p *Prober) logFailedProbe(cfg *config.ServiceConfig, result *ProbeResult, 
 				snippet = snippet[:maxSnippetLen] + "... (truncated)"
 			}
 			logger.Warn("probe", "响应片段",
-				"provider", cfg.Provider, "service", cfg.Service, "channel", cfg.Channel, "model", cfg.Model, "snippet", snippet)
+				"provider", cfg.Provider, "service", cfg.Service, "channel", cfg.Channel, "model", cfg.Model,
+				"snippet", redactProbeSecret(snippet, cfg.APIKey))
 		}
 	}
+}
+
+// redactProbeSecret 防止上游把认证信息原样回显时污染服务日志和历史摘要。
+// 与内联探测器的脱敏口径保持一致：同时处理原文、query 编码和 path 编码。
+func redactProbeSecret(text, apiKey string) string {
+	if len(apiKey) < 8 || text == "" {
+		return text
+	}
+	variants := []string{apiKey, url.QueryEscape(apiKey), url.PathEscape(apiKey)}
+	sort.Slice(variants, func(i, j int) bool { return len(variants[i]) > len(variants[j]) })
+	for _, variant := range variants {
+		if variant != "" {
+			text = strings.ReplaceAll(text, variant, "<api-key>")
+		}
+	}
+	return text
 }
 
 // evaluateStatus 在基础状态上叠加响应内容匹配规则

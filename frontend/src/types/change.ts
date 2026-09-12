@@ -68,7 +68,6 @@ export interface AdminChangeRequest {
   auth_last4: string;
   current_snapshot: string;
   proposed_changes: string;
-  new_key_encrypted?: string;
   new_key_fingerprint?: string;
   new_key_last4?: string;
   requires_test: boolean;

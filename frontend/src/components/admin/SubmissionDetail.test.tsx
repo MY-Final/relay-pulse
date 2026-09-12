@@ -41,7 +41,6 @@ const baseSubmission: AdminSubmission = {
   price_min: 0,
   price_max: 0,
   base_url: 'https://api.yintu.cc',
-  api_key_encrypted: '',
   api_key_fingerprint: 'fp',
   api_key_last4: '1234',
   test_job_id: 'job-1',
@@ -67,9 +66,6 @@ const roots: ReturnType<typeof createRoot>[] = [];
 function render(subOverrides: Partial<AdminSubmission> = {}) {
   const props: DetailProps = {
     submission: { ...baseSubmission, ...subOverrides },
-    apiKey: 'sk-test',
-    showApiKey: false,
-    setShowApiKey: vi.fn(),
     onSave: vi.fn(),
     onTest: vi.fn().mockResolvedValue(null),
     fetchTemplates: vi.fn().mockResolvedValue(['cc-haiku-arith']),

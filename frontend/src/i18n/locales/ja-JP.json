@@ -604,8 +604,10 @@
     "logout": "ログアウト",
     "auth": {
       "title": "管理者認証",
-      "tokenLabel": "管理者トークン",
-      "tokenPlaceholder": "管理者トークンを入力",
+      "usernameLabel": "管理者アカウント",
+      "usernamePlaceholder": "管理者アカウントを入力",
+      "passwordLabel": "管理者パスワード",
+      "passwordPlaceholder": "管理者パスワードを入力",
       "login": "ログイン",
       "submitting": "認証中..."
     },
@@ -662,6 +664,7 @@
       "hideKey": "API Key を非表示",
       "copyKey": "API Key をコピー",
       "copiedKey": "コピーしました",
+      "clearKey": "キーを消去",
       "probe": "プローブ",
       "probeResponseBody": "レスポンス本文",
       "probing": "プローブ中...",

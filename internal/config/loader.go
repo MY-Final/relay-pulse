@@ -53,11 +53,15 @@ func (l *Loader) Load(filename string) (*AppConfig, error) {
 		return nil, fmt.Errorf("解析配置文件路径失败: %w", err)
 	}
 	configDir := filepath.Dir(absPath)
+	cfg.applyAdminEnvOverrides()
 
 	// 合并 monitors.d/ 外部 monitor 源
 	// 必须在 validate 之前合并，确保所有 monitors 走完整校验/继承/规范化流程
 	if err := cfg.mergeExternalMonitorSources(configDir); err != nil {
 		return nil, fmt.Errorf("合并外部 monitor 配置失败: %w", err)
+	}
+	if err := cfg.decryptMonitorAPIKeys(cfg.Monitors); err != nil {
+		return nil, fmt.Errorf("解密监测配置失败: %w", err)
 	}
 
 	// 验证配置

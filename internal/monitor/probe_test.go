@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -30,6 +31,18 @@ func TestEvaluateStatusWithoutSuccessContains(t *testing.T) {
 	}
 	if subStatus != storage.SubStatusNone {
 		t.Fatalf("expected SubStatusNone, got %s", subStatus)
+	}
+}
+
+func TestRedactProbeSecretHandlesURLForms(t *testing.T) {
+	key := "sk-live/secret+1234"
+	text := "raw=" + key + " query=" + url.QueryEscape(key) + " path=" + url.PathEscape(key)
+	got := redactProbeSecret(text, key)
+	if strings.Contains(got, key) || strings.Contains(got, url.QueryEscape(key)) || strings.Contains(got, url.PathEscape(key)) {
+		t.Fatalf("probe secret leaked after redaction: %q", got)
+	}
+	if strings.Count(got, "<api-key>") != 3 {
+		t.Fatalf("expected three redacted forms, got %q", got)
 	}
 }
 
