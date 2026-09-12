@@ -1,20 +1,164 @@
-# RelayPulse 最小配置。启动后所有未列字段使用内置默认值。
+# RelayPulse 检测配置示例。
 #
-# 完整字段与调优项（interval / slow_latency / retry / boards / events /
-# annotations / storage.postgres / onboarding 等）见 docs/user/config.md
-# 可用模板见 templates/ 目录（cc-haiku-arith / cx-gpt-arith / gm-flash-arith ...）
+# 本文件不包含真实 API Key。部署时复制为 config/config.yaml，
+# 再在仓库根目录 .env 中填写各号池的 Key。
+#
+# 所有号池共用同一个 NewAPI 地址；不同 Key 通过 env_var_name 区分。
+# 检测频率：Luna/Grok=1m，Terra/Sol=10m，Astra/Claude=15m。
+
+interval: "15m"
 
 monitors:
-  - provider: "88code"
-    service: "cc"              # 服务类型：cc (Claude Code) / cx (Codex) / gm (Gemini)
-    channel: "vip3"
-    base_url: "https://api.88code.com"
-    template: "cc-haiku-arith"
-    api_key: "sk-xxxxxxxx"     # 或用环境变量 MONITOR_88CODE_CC_VIP3_API_KEY 注入
+  # ==================== 号池1 ====================
 
-  - provider: "google"
-    service: "gm"
-    channel: "direct"
-    base_url: "https://generativelanguage.googleapis.com"
-    template: "gm-flash-arith"
-    api_key: "AIza..."
+  - provider: "号池1"
+    provider_slug: "pool-1"
+    service: "cx"
+    channel: "gpt-5.6-terra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56terra-arith"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_1_KEY"
+
+  - provider: "号池1"
+    provider_slug: "pool-1"
+    service: "cx"
+    channel: "gpt-5.6-sol"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56-arith"
+    model: "GPT-5.6-Sol"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_1_KEY"
+
+  - provider: "号池1"
+    provider_slug: "pool-1"
+    service: "cx"
+    channel: "gpt-6-astra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt6astra-arith"
+    interval: "15m"
+    env_var_name: "NEWAPI_POOL_1_KEY"
+
+  # ==================== 号池2 ====================
+
+  - provider: "号池2"
+    provider_slug: "pool-2"
+    service: "cx"
+    channel: "gpt-5.6-terra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56terra-arith"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_2_KEY"
+
+  - provider: "号池2"
+    provider_slug: "pool-2"
+    service: "cx"
+    channel: "gpt-5.6-sol"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56-arith"
+    model: "GPT-5.6-Sol"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_2_KEY"
+
+  - provider: "号池2"
+    provider_slug: "pool-2"
+    service: "cx"
+    channel: "gpt-6-astra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt6astra-arith"
+    interval: "15m"
+    env_var_name: "NEWAPI_POOL_2_KEY"
+
+  # ==================== 号池3 ====================
+
+  - provider: "号池3"
+    provider_slug: "pool-3"
+    service: "cx"
+    channel: "gpt-5.6-terra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56terra-arith"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_3_KEY"
+
+  - provider: "号池3"
+    provider_slug: "pool-3"
+    service: "cx"
+    channel: "gpt-5.6-sol"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56-arith"
+    model: "GPT-5.6-Sol"
+    interval: "10m"
+    env_var_name: "NEWAPI_POOL_3_KEY"
+
+  - provider: "号池3"
+    provider_slug: "pool-3"
+    service: "cx"
+    channel: "gpt-6-astra"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt6astra-arith"
+    interval: "15m"
+    env_var_name: "NEWAPI_POOL_3_KEY"
+
+  # ==================== Luna 号池 ====================
+
+  - provider: "Luna号池1"
+    provider_slug: "luna-pool-1"
+    service: "cx"
+    channel: "gpt-5.6-luna"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56luna-arith"
+    interval: "1m"
+    env_var_name: "NEWAPI_LUNA_1_KEY"
+
+  - provider: "Luna号池2"
+    provider_slug: "luna-pool-2"
+    service: "cx"
+    channel: "gpt-5.6-luna"
+    base_url: "https://wcnmb.fun"
+    template: "cx-gpt56luna-arith"
+    interval: "1m"
+    env_var_name: "NEWAPI_LUNA_2_KEY"
+
+  # ==================== Claude 号池 ====================
+
+  - provider: "Claude号池"
+    provider_slug: "claude-pool"
+    service: "cc"
+    channel: "claude-opus-5"
+    base_url: "https://wcnmb.fun"
+    template: "cc-opus-ping-20260806"
+    interval: "15m"
+    env_var_name: "NEWAPI_CLAUDE_KEY"
+
+  - provider: "Claude号池"
+    provider_slug: "claude-pool"
+    service: "cc"
+    channel: "claude-sonnet-5"
+    base_url: "https://wcnmb.fun"
+    template: "cc-sonnet-ping-20260806"
+    interval: "15m"
+    env_var_name: "NEWAPI_CLAUDE_KEY"
+
+  # ==================== Grok 号池 ====================
+
+  - provider: "Grok号池"
+    provider_slug: "grok-pool"
+    service: "cx"
+    channel: "grok-4.5"
+    base_url: "https://wcnmb.fun"
+    template: "cx-grok-arith"
+    model: "Grok-4.5"
+    request_model: "grok-4.5"
+    interval: "1m"
+    env_var_name: "NEWAPI_GROK_KEY"
+
+  - provider: "Grok号池"
+    provider_slug: "grok-pool"
+    service: "cx"
+    channel: "grok-4.6"
+    base_url: "https://wcnmb.fun"
+    template: "cx-grok-arith"
+    model: "Grok-4.6"
+    request_model: "grok-4.6"
+    interval: "1m"
+    env_var_name: "NEWAPI_GROK_KEY"

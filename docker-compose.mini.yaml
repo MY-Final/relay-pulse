@@ -17,6 +17,8 @@ services:
     volumes:
       - ./config:/config
       - relay-pulse-mini-data:/data
+    env_file:
+      - .env
     environment:
       TZ: Asia/Shanghai
       MONITOR_SQLITE_PATH: /data/monitor.db
