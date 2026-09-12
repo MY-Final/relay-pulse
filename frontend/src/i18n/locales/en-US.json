@@ -720,6 +720,8 @@
       "statusDisabled": "Disabled",
       "statusHidden": "Hidden",
       "templateNone": "No template",
+      "legacyServiceHint": "The current service “{{service}}” is not a supported access protocol, so its probe template cannot load. Duplicate this channel, change the service to CX, and choose a template such as cx-grok-arith.",
+      "repairByDuplicate": "Duplicate and fix",
       "proxyDirect": "Direct (no proxy)",
       "legacyProxy": "Legacy proxy: {{value}}",
       "keepProxy": "Keep",
@@ -766,7 +768,8 @@
         "provider": "Provider",
         "providerName": "Provider Name",
         "providerUrl": "Provider Website",
-        "service": "Service",
+        "service": "Service protocol",
+        "serviceHint": "This is the access protocol, not the model vendor. For Grok / xAI, choose CX and select xAI as the model vendor.",
         "channel": "Channel",
         "channelName": "Channel Name",
         "template": "Template",
@@ -791,6 +794,13 @@
         "autoMoveExempt": "Exempt from Auto-Move",
         "autoMoveExemptHint": "Skips all availability-based auto-moves (expiry demotion is unaffected)",
         "modelVendor": "Model vendor"
+      },
+      "serviceTypes": {
+        "select": "Select a service protocol",
+        "cc": "CC (Anthropic / Claude)",
+        "cx": "CX (OpenAI / Codex compatible)",
+        "gm": "GM (Gemini)",
+        "legacy": "legacy value, fix recommended"
       },
       "form": {
         "title": "New Monitor",

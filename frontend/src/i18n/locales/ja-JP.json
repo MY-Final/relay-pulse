@@ -720,6 +720,8 @@
       "statusDisabled": "無効",
       "statusHidden": "非表示",
       "templateNone": "テンプレートなし",
+      "legacyServiceHint": "現在の service「{{service}}」は対応する接続プロトコルではないため、プローブテンプレートを読み込めません。このチャネルを複製し、サービスを CX に変更して cx-grok-arith などのテンプレートを選択してください。",
+      "repairByDuplicate": "複製して修正",
       "proxyDirect": "直接接続（プロキシなし）",
       "legacyProxy": "旧プロキシ: {{value}}",
       "keepProxy": "保持",
@@ -766,7 +768,8 @@
         "provider": "プロバイダー",
         "providerName": "プロバイダー名",
         "providerUrl": "公式サイト",
-        "service": "サービス",
+        "service": "サービスプロトコル",
+        "serviceHint": "これはモデル提供元ではなく接続プロトコルです。Grok / xAI は CX を選び、モデル提供元で xAI を選択してください。",
         "channel": "チャネル",
         "channelName": "チャネル名",
         "template": "テンプレート",
@@ -791,6 +794,13 @@
         "autoMoveExempt": "自動移動除外",
         "autoMoveExemptHint": "可用率に基づく自動移動を全てスキップします（有効期限による降格は対象外）",
         "modelVendor": "モデル提供元"
+      },
+      "serviceTypes": {
+        "select": "サービスプロトコルを選択",
+        "cc": "CC（Anthropic / Claude）",
+        "cx": "CX（OpenAI / Codex 互換）",
+        "gm": "GM（Gemini）",
+        "legacy": "旧値、修正を推奨"
       },
       "form": {
         "title": "新規モニター作成",

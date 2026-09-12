@@ -720,6 +720,8 @@
       "statusDisabled": "停用",
       "statusHidden": "隐藏",
       "templateNone": "无模板",
+      "legacyServiceHint": "当前 service “{{service}}” 不是有效的接入协议，因此不会加载对应探测模板。请复制此通道，将服务改为 CX，再选择 cx-grok-arith 等模板。",
+      "repairByDuplicate": "复制并修复协议",
       "proxyDirect": "直连（不使用代理）",
       "legacyProxy": "旧代理：{{value}}",
       "keepProxy": "保留",
@@ -766,7 +768,8 @@
         "provider": "服务商",
         "providerName": "服务商名称",
         "providerUrl": "服务商官网",
-        "service": "服务",
+        "service": "服务协议",
+        "serviceHint": "这是接入协议，不是模型厂商。Grok / xAI 请选择 CX，并在“模型厂商”选择 xAI。",
         "channel": "通道",
         "channelName": "通道名称",
         "template": "模板",
@@ -791,6 +794,13 @@
         "autoMoveExempt": "豁免自动移板",
         "autoMoveExemptHint": "启用后跳过所有基于可用率的自动移板（不影响到期降级）",
         "modelVendor": "模型厂商"
+      },
+      "serviceTypes": {
+        "select": "选择服务协议",
+        "cc": "CC（Anthropic / Claude）",
+        "cx": "CX（OpenAI / Codex 兼容）",
+        "gm": "GM（Gemini）",
+        "legacy": "历史值，建议修复"
       },
       "form": {
         "title": "新建监测通道",

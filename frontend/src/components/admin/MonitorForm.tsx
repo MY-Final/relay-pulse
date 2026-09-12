@@ -5,9 +5,10 @@ import type { MonitorConfig, MonitorFile } from '../../types/monitor';
 import { FormField, SelectField, CheckboxField } from './FormControls';
 import { buildVendorOptions, useModelVendors } from '../../hooks/useModelVendors';
 import type { ProxyProfile } from '../../types/proxy';
+import { mergeTemplateNames, MONITOR_SERVICE_TYPES } from './monitorOptions';
 
 interface MonitorFormProps {
-  fetchTemplates: () => Promise<string[]>;
+  fetchTemplates: (serviceType?: string) => Promise<string[]>;
   proxyProfiles: ProxyProfile[];
   /** 复制通道时传入脱敏后的原通道配置；密钥由服务端按 copy_from 安全复用。 */
   initialFile?: MonitorFile | null;
@@ -65,13 +66,13 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
 
   useEffect(() => {
     let active = true;
-    fetchTemplates()
+    fetchTemplates(config.service)
       .then(items => { if (active) setTemplates(items); })
       .catch(() => { if (active) setTemplates([]); });
     return () => { active = false; };
-  }, [fetchTemplates]);
+  }, [fetchTemplates, config.service]);
 
-  const templateOptions = mergeTemplateNames(templates, config.template);
+  const templateOptions = mergeTemplateNames(templates, config.template, config.service);
   const sourceRoot = initialFile?.monitors.find(m => !m.parent) || initialFile?.monitors[0];
 
   const sponsorLevelOptions = [
@@ -96,6 +97,13 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
 
   const updateChild = (index: number, field: keyof ChildDraft, value: string) => {
     setChildren(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+  };
+
+  const handleServiceChange = (service: string) => {
+    updateField('service', service);
+    if (config.template && !config.template.startsWith(`${service}-`)) {
+      updateField('template', '');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,10 +187,21 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
             value={config.provider_name || ''}
             onChange={v => updateField('provider_name', v)}
           />
-          <FormField
+          <SelectField
             label={`${t('admin.monitors.field.service')} *`}
             value={config.service || ''}
-            onChange={v => updateField('service', v)}
+            onChange={handleServiceChange}
+            hint={t('admin.monitors.field.serviceHint')}
+            options={[
+              { value: '', label: t('admin.monitors.serviceTypes.select') },
+              ...MONITOR_SERVICE_TYPES.map(service => ({
+                value: service,
+                label: t(`admin.monitors.serviceTypes.${service}`),
+              })),
+              ...(config.service && !MONITOR_SERVICE_TYPES.includes(config.service as typeof MONITOR_SERVICE_TYPES[number])
+                ? [{ value: config.service, label: `${config.service}（${t('admin.monitors.serviceTypes.legacy')})` }]
+                : []),
+            ]}
           />
           <FormField
             label={`${t('admin.monitors.field.channel')} *`}
@@ -207,6 +226,7 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
             label={t('admin.monitors.field.template')}
             value={config.template || ''}
             onChange={v => updateField('template', v)}
+            disabled={!config.service}
             options={[
               { value: '', label: t('admin.monitors.templateNone') },
               ...templateOptions.map(name => ({ value: name, label: name })),
@@ -368,10 +388,15 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
               onChange={v => updateChild(i, 'model_vendor', v)}
               options={vendorOptions(child.model_vendor)}
             />
-            <FormField
+            <SelectField
               label={t('admin.monitors.field.template')}
               value={child.template}
               onChange={v => updateChild(i, 'template', v)}
+              disabled={!config.service}
+              options={[
+                { value: '', label: t('admin.monitors.templateNone') },
+                ...mergeTemplateNames(templates, child.template, config.service).map(name => ({ value: name, label: name })),
+              ]}
             />
             <FormField
               label={t('admin.monitors.field.baseUrl')}
@@ -424,12 +449,6 @@ export function MonitorForm({ fetchTemplates, proxyProfiles, initialFile, onSave
       </div>
     </form>
   );
-}
-
-function mergeTemplateNames(names: string[], current?: string): string[] {
-  const merged = new Set(names.filter(Boolean));
-  if (current) merged.add(current);
-  return Array.from(merged).sort();
 }
 
 function buildInitialConfig(file?: MonitorFile | null): MonitorConfig {

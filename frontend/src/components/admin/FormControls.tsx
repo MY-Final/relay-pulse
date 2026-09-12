@@ -57,12 +57,14 @@ export function SelectField({
   onChange,
   options,
   disabled = false,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   disabled?: boolean;
+  hint?: string;
 }) {
   return (
     <div>
@@ -77,6 +79,7 @@ export function SelectField({
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
+      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { MonitorLogsTab } from './MonitorLogsTab';
 import { CurlCommandBlock } from './CurlCommandBlock';
 import { fieldInputClass, fieldShapeClass } from './fieldStyles';
 import { buildVendorOptions, useModelVendors } from '../../hooks/useModelVendors';
+import { isKnownMonitorService, mergeTemplateNames } from './monitorOptions';
 
 type DetailTab = 'detail' | 'logs';
 
@@ -21,7 +22,7 @@ type DetailTab = 'detail' | 'logs';
 const COLD_REASON_MAX_LENGTH = 80;
 
 interface MonitorDetailProps {
-  fetchTemplates: () => Promise<string[]>;
+  fetchTemplates: (serviceType?: string) => Promise<string[]>;
   proxyProfiles: ProxyProfile[];
   monitorFile: MonitorFile;
   monitorKey: string;
@@ -138,16 +139,17 @@ export function MonitorDetail({
 
   useEffect(() => {
     let active = true;
-    fetchTemplates()
+    fetchTemplates(root?.service)
       .then(items => { if (active) setTemplates(items); })
       .catch(() => { if (active) setTemplates([]); });
     return () => { active = false; };
-  }, [fetchTemplates]);
+  }, [fetchTemplates, root?.service]);
 
   const templateOptions = withCurrentOption(
     [
       { value: '', label: t('admin.monitors.templateNone') },
-      ...Array.from(new Set(templates)).sort().map(name => ({ value: name, label: name })),
+      ...mergeTemplateNames(templates, isEditing ? editFields.template : root?.template, root?.service)
+        .map(name => ({ value: name, label: name })),
     ],
     isEditing ? editFields.template : root?.template,
   );
@@ -386,6 +388,22 @@ export function MonitorDetail({
           </button>
         </div>
       </div>
+
+      {root && !isKnownMonitorService(root.service) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+          <p className="text-warning">
+            {t('admin.monitors.legacyServiceHint', { service: root.service })}
+          </p>
+          <button
+            type="button"
+            onClick={() => onDuplicate(monitorFile, monitorKey)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10 transition"
+          >
+            <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('admin.monitors.repairByDuplicate')}
+          </button>
+        </div>
+      )}
 
       {/* Tab 导航 */}
       <nav className="flex gap-1 border-b border-default">

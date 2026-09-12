@@ -10,6 +10,7 @@ import type {
   ProbeTarget,
   MonitorResetScope,
 } from '../types/monitor';
+import { isKnownMonitorService } from '../components/admin/monitorOptions';
 
 /** 父通道在按 target 分桶的 probe 状态里使用的固定 key。 */
 export const PARENT_TARGET_KEY = '';
@@ -136,12 +137,16 @@ export function useMonitorAdmin(isAuthenticated: boolean) {
   }, [isAuthenticated, fetchList]);
 
   // Fetch templates
-  const fetchTemplates = useCallback(async (): Promise<string[]> => {
+  const fetchTemplates = useCallback(async (serviceType?: string): Promise<string[]> => {
     if (!isAuthenticated) return [];
 
     try {
+      const normalizedService = serviceType?.trim().toLowerCase();
+      const query = isKnownMonitorService(normalizedService)
+        ? `?service_type=${encodeURIComponent(normalizedService!)}`
+        : '';
       const resp = await apiGet<{ templates: string[] }>(
-        '/api/admin/templates',
+        `/api/admin/templates${query}`,
         { headers: authHeaders() },
       );
       return resp.templates || [];
