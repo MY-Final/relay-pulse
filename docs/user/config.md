@@ -150,6 +150,18 @@ export MONITOR_ADMIN_ENCRYPTION_KEY="$(openssl rand -hex 32)"
 
 后台保存到 `monitors.d/` 的新 API Key 只写入 `api_key_encrypted`，详情页只显示末四位掩码。编辑时留空表示保留原 Key，使用“清除 Key”才会删除。环境变量注入的 API Key 优先级最高，旧配置中的明文 `api_key` 仍可读取。
 
+后台的“代理配置”页支持维护多条 HTTP/HTTPS/SOCKS5 代理。代理地址保存在配置目录的 `proxies.yaml` 中，并使用 `MONITOR_ADMIN_ENCRYPTION_KEY` 加密；监测项只保存代理配置 ID：
+
+```yaml
+monitors:
+  - provider: "example"
+    service: "cx"
+    channel: "pool-1"
+    proxy_profile: "proxy-0123456789abcdef"
+```
+
+新建或编辑监测项时选择“直连”即可不使用代理。旧配置里的明文 `proxy` 仍可读取；管理后台只显示脱敏地址，编辑时不重新填写会保留旧代理，使用“清除代理”才会移除它。修改代理配置文件会触发配置热加载，无需重启。
+
 后台写操作使用会话 Cookie + CSRF token。旧脚本仍可用 `Authorization: Bearer <onboarding.admin_token>` 访问兼容接口；Bearer 请求不需要 CSRF header。
 
 当 `admin.enabled=true` 时，`username`、有效的 bcrypt `password_hash`、`MONITOR_ADMIN_SESSION_SECRET` 和 `MONITOR_ADMIN_ENCRYPTION_KEY` 缺一不可，否则服务拒绝启动。`monitors.d/` 是后台 CRUD 的唯一写入目录；若历史通道还在 `config.yaml` 的 `monitors:` 中，请先运行 `go run ./cmd/migrate`，避免同一 PSC 重复。

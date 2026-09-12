@@ -643,6 +643,7 @@
     "tabs": {
       "submissions": "申请管理",
       "monitors": "通道管理",
+      "proxies": "代理配置",
       "changes": "变更请求"
     },
     "submissions": {
@@ -708,6 +709,10 @@
       "statusDisabled": "停用",
       "statusHidden": "隐藏",
       "templateNone": "无模板",
+      "proxyDirect": "直连（不使用代理）",
+      "legacyProxy": "旧代理：{{value}}",
+      "keepProxy": "保留",
+      "clearProxy": "清除代理",
       "sponsorLevels": {
         "none": "无",
         "public": "公益",
@@ -764,6 +769,7 @@
         "model": "模型",
         "apiKey": "API Key",
         "proxy": "代理",
+        "proxyProfile": "代理配置",
         "listedSince": "收录时间",
         "priceMin": "最低倍率",
         "priceMax": "最高倍率",
@@ -785,6 +791,24 @@
         "requiredFields": "Provider、Service、Channel 为必填",
         "create": "创建"
       }
+    },
+    "proxies": {
+      "title": "代理配置",
+      "description": "代理地址会加密保存。创建后可在监测通道中选择使用，未选择时走直连。",
+      "addTitle": "添加代理",
+      "name": "名称",
+      "namePlaceholder": "例如：日本出口",
+      "url": "代理地址",
+      "urlPlaceholder": "http://user:pass@host:port 或 socks5://host:port",
+      "add": "添加",
+      "save": "保存",
+      "edit": "编辑",
+      "delete": "删除",
+      "loading": "加载代理配置中...",
+      "empty": "还没有代理配置",
+      "confirmDelete": "确定删除代理“{{name}}”吗？",
+      "saveFailed": "保存代理配置失败",
+      "deleteFailed": "删除代理配置失败"
     },
     "changes": {
       "empty": "暂无变更请求",

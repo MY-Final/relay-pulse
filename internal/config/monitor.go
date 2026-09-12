@@ -154,6 +154,12 @@ type ServiceConfig struct {
 	// 注意：SOCKS5 代理必须指定端口
 	// 不配置时使用系统环境变量代理（HTTP_PROXY/HTTPS_PROXY）
 	Proxy string `yaml:"proxy" json:"proxy,omitempty"` // admin monitor CRUD 需要 round-trip；公共 API 不直接序列化 ServiceConfig
+	// ProxyProfile 是管理员代理配置 ID。存在时由配置加载器解析为 Proxy；空值保持旧的直填 proxy 兼容行为。
+	ProxyProfile string `yaml:"proxy_profile,omitempty" json:"proxy_profile,omitempty"`
+	// ProxyMasked 是管理员详情接口返回的脱敏代理地址，不参与 YAML 读写。
+	ProxyMasked string `yaml:"-" json:"proxy_masked,omitempty"`
+	// ClearProxy 是管理员写入时显式清除旧代理的控制字段，不参与 YAML 读写。
+	ClearProxy bool `yaml:"-" json:"clear_proxy,omitempty"`
 
 	APIKey          string `yaml:"api_key" json:"api_key,omitempty"` // 兼容旧版明文配置；admin 新写入会转为密文
 	APIKeyEncrypted string `yaml:"api_key_encrypted,omitempty" json:"-"`

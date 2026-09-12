@@ -643,6 +643,7 @@
     "tabs": {
       "submissions": "申請管理",
       "monitors": "チャネル管理",
+      "proxies": "プロキシ設定",
       "changes": "変更リクエスト"
     },
     "submissions": {
@@ -708,6 +709,10 @@
       "statusDisabled": "無効",
       "statusHidden": "非表示",
       "templateNone": "テンプレートなし",
+      "proxyDirect": "直接接続（プロキシなし）",
+      "legacyProxy": "旧プロキシ: {{value}}",
+      "keepProxy": "保持",
+      "clearProxy": "プロキシを削除",
       "sponsorLevels": {
         "none": "なし",
         "public": "公共",
@@ -764,6 +769,7 @@
         "model": "モデル",
         "apiKey": "APIキー",
         "proxy": "プロキシ",
+        "proxyProfile": "プロキシ設定",
         "listedSince": "掲載開始日",
         "priceMin": "最低価格倍率",
         "priceMax": "最高価格倍率",
@@ -785,6 +791,24 @@
         "requiredFields": "プロバイダー、サービス、チャネルは必須です",
         "create": "作成"
       }
+    },
+    "proxies": {
+      "title": "プロキシ設定",
+      "description": "プロキシ URL は暗号化して保存されます。監視チャネルごとに設定を選択できます。",
+      "addTitle": "プロキシを追加",
+      "name": "名前",
+      "namePlaceholder": "例: 日本出口",
+      "url": "プロキシ URL",
+      "urlPlaceholder": "http://user:pass@host:port または socks5://host:port",
+      "add": "追加",
+      "save": "保存",
+      "edit": "編集",
+      "delete": "削除",
+      "loading": "プロキシ設定を読み込み中...",
+      "empty": "プロキシ設定はありません",
+      "confirmDelete": "プロキシ「{{name}}」を削除しますか？",
+      "saveFailed": "プロキシ設定の保存に失敗しました",
+      "deleteFailed": "プロキシ設定の削除に失敗しました"
     },
     "changes": {
       "empty": "変更リクエストはありません",

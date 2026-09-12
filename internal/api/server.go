@@ -232,6 +232,7 @@ func NewServer(store storage.Storage, cfg *config.AppConfig, port string, autoMo
 	router.GET("/api/status/query", handler.GetStatusQuery)
 	router.POST("/api/status/batch", handler.PostStatusBatch)
 	router.GET("/api/rpdiag-scores", handler.GetRpdiagScores)
+	router.GET("/api/model-vendors", handler.GetModelVendors)
 
 	// 事件 API 路由
 	router.GET("/api/events", handler.GetEvents)
@@ -272,6 +273,10 @@ func NewServer(store storage.Storage, cfg *config.AppConfig, port string, autoMo
 
 	// 管理后台 — monitors.d/ CRUD API（需 Bearer token 鉴权）
 	router.GET("/api/admin/templates", handler.AdminListTemplates)
+	router.GET("/api/admin/proxies", handler.AdminListProxyProfiles)
+	router.POST("/api/admin/proxies", handler.AdminCreateProxyProfile)
+	router.PUT("/api/admin/proxies/:id", handler.AdminUpdateProxyProfile)
+	router.DELETE("/api/admin/proxies/:id", handler.AdminDeleteProxyProfile)
 	router.GET("/api/admin/monitors", handler.AdminListMonitors)
 	router.GET("/api/admin/monitors/:key", handler.AdminGetMonitor)
 	router.POST("/api/admin/monitors", handler.AdminCreateMonitor)

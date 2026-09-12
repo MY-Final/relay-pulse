@@ -279,6 +279,10 @@ func (h *Handler) adminMonitorView(file *config.MonitorFile) config.MonitorFile 
 	copy(view.Monitors, file.Monitors)
 	for i := range view.Monitors {
 		monitor := &view.Monitors[i]
+		proxyURL := monitor.Proxy
+		if strings.TrimSpace(proxyURL) != "" {
+			monitor.ProxyMasked = maskProxyProfileURL(proxyURL)
+		}
 		secret := monitor.APIKey
 		if secret == "" && monitor.APIKeyEncrypted != "" && h.adminKeyCipher != nil {
 			if decrypted, err := h.adminKeyCipher.Decrypt(monitor.APIKeyEncrypted); err == nil {
@@ -292,7 +296,9 @@ func (h *Handler) adminMonitorView(file *config.MonitorFile) config.MonitorFile 
 		}
 		monitor.APIKey = ""
 		monitor.APIKeyEncrypted = ""
+		monitor.Proxy = ""
 		monitor.ClearAPIKey = false
+		monitor.ClearProxy = false
 	}
 	return view
 }
@@ -329,6 +335,10 @@ func (h *Handler) AdminCreateMonitor(c *gin.Context) {
 
 	if len(file.Monitors) == 0 {
 		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "monitors 不能为空")
+		return
+	}
+	if err := h.validateMonitorProxyProfiles(file.Monitors); err != nil {
+		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, err.Error())
 		return
 	}
 
@@ -411,6 +421,10 @@ func (h *Handler) AdminUpdateMonitor(c *gin.Context) {
 
 	if len(req.Monitor.Monitors) == 0 {
 		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, "monitors 不能为空")
+		return
+	}
+	if err := h.validateMonitorProxyProfiles(req.Monitor.Monitors); err != nil {
+		apiError(c, http.StatusBadRequest, ErrCodeInvalidParam, err.Error())
 		return
 	}
 
@@ -642,6 +656,11 @@ func (h *Handler) AdminProbeMonitor(c *gin.Context) {
 				apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "读取监测配置失败")
 				return
 			}
+			if err := h.resolveAdminMonitorProxyProfile(&cfg); err != nil {
+				logger.Error("admin", "解析监测代理配置失败", "key", key, "error", err)
+				apiError(c, http.StatusInternalServerError, ErrCodeInternalError, "读取监测配置失败")
+				return
+			}
 			logger.Warn("admin", "AdminProbeMonitor 使用 raw fallback 解析",
 				"key", key, "provider", root.Provider, "service", root.Service, "channel", root.Channel)
 			c.Header("X-Probe-Config-Source", "raw-fallback")
@@ -703,6 +722,26 @@ func (h *Handler) decryptAdminMonitorAPIKey(cfg *config.ServiceConfig) error {
 		return err
 	}
 	cfg.APIKey = plain
+	return nil
+}
+
+// resolveAdminMonitorProxyProfile 处理刚写入 monitors.d、尚未触发热加载时的手动探测。
+// 正常运行路径由 Loader 解析 profile；fallback 需要从代理配置文件补齐同一字段。
+func (h *Handler) resolveAdminMonitorProxyProfile(cfg *config.ServiceConfig) error {
+	if cfg == nil || strings.TrimSpace(cfg.ProxyProfile) == "" {
+		return nil
+	}
+	if h.proxyStore == nil {
+		return fmt.Errorf("代理配置存储未初始化")
+	}
+	profile, err := h.proxyStore.Get(cfg.ProxyProfile)
+	if err != nil {
+		return err
+	}
+	if profile == nil {
+		return fmt.Errorf("代理配置不存在: %s", cfg.ProxyProfile)
+	}
+	cfg.Proxy = profile.URL
 	return nil
 }
 

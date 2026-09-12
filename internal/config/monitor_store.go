@@ -402,6 +402,23 @@ func copyAdminHiddenFields(dst, src *ServiceConfig) {
 		dst.APIKeyEncrypted = ""
 	}
 	dst.ClearAPIKey = false
+
+	// 代理地址可能包含认证信息，详情接口不会把它回传给浏览器。空的代理字段因此
+	// 不能简单理解为“清除”：没有显式 clear_proxy 时保留旧值，避免管理员只改名称
+	// 或间隔就把旧代理意外删掉。选择代理配置时以 profile 为准，并清除历史直填地址。
+	if dst.ClearProxy {
+		dst.Proxy = ""
+		dst.ProxyProfile = ""
+	} else if strings.TrimSpace(dst.ProxyProfile) != "" {
+		dst.Proxy = ""
+	} else if strings.TrimSpace(dst.Proxy) == "" && strings.TrimSpace(dst.ProxyMasked) != "" {
+		dst.Proxy = src.Proxy
+		dst.ProxyProfile = src.ProxyProfile
+	} else {
+		// 管理员显式填入直连代理时，不能继续保留旧的 profile 引用。
+		dst.ProxyProfile = ""
+	}
+	dst.ClearProxy = false
 }
 
 // prepareAPIKeysForWrite 把管理员请求里的明文 Key 转成密文；旧配置在没有

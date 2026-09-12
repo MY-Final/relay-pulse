@@ -2,6 +2,7 @@ import { useEffect, useState, type InputHTMLAttributes } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import type { MonitorConfig, MonitorFile, ProbeHistoryEntry, ProbeTarget } from '../../types/monitor';
+import type { ProxyProfile } from '../../types/proxy';
 import type { ProbeResult } from '../../hooks/useMonitorAdmin';
 import { PARENT_TARGET_KEY } from '../../hooks/useMonitorAdmin';
 import { MonitorLogsTab } from './MonitorLogsTab';
@@ -21,6 +22,7 @@ const COLD_REASON_MAX_LENGTH = 80;
 
 interface MonitorDetailProps {
   fetchTemplates: () => Promise<string[]>;
+  proxyProfiles: ProxyProfile[];
   monitorFile: MonitorFile;
   monitorKey: string;
   onBack: () => void;
@@ -44,9 +46,9 @@ interface MonitorDetailProps {
 }
 
 type EditableFields = Pick<MonitorConfig,
-  'provider_name' | 'channel_name' | 'provider_url' | 'template' | 'base_url' | 'api_key' | 'proxy' |
+  'provider_name' | 'channel_name' | 'provider_url' | 'template' | 'base_url' | 'api_key' | 'proxy' | 'proxy_profile' |
   'category' | 'sponsor_level' | 'board' | 'cold_reason' | 'interval' | 'listed_since' | 'expires_at' |
-  'price_min' | 'price_max' | 'key_type' | 'auto_cold_exempt' | 'auto_move_exempt' | 'clear_api_key'
+  'price_min' | 'price_max' | 'key_type' | 'auto_cold_exempt' | 'auto_move_exempt' | 'clear_api_key' | 'clear_proxy'
 >;
 
 interface ChildEdit {
@@ -66,7 +68,7 @@ interface SelectOption {
 }
 
 export function MonitorDetail({
-  fetchTemplates, monitorFile, monitorKey, onBack,
+  fetchTemplates, proxyProfiles, monitorFile, monitorKey, onBack,
   onSave, onDelete, onToggle, onProbe, fetchLogs,
   probeTargets = [], probingTargets = {}, probeResults = {}, probeErrors = {},
 }: MonitorDetailProps) {
@@ -103,6 +105,7 @@ export function MonitorDetail({
     base_url: root?.base_url || '',
     api_key: '',
     proxy: root?.proxy || '',
+    proxy_profile: root?.proxy_profile || '',
     category: root?.category || '',
     sponsor_level: root?.sponsor_level || '',
     board: root?.board || 'hot',
@@ -116,6 +119,7 @@ export function MonitorDetail({
     auto_cold_exempt: root?.auto_cold_exempt ?? false,
     auto_move_exempt: root?.auto_move_exempt ?? false,
     clear_api_key: false,
+    clear_proxy: false,
   });
 
   const [editChildren, setEditChildren] = useState<ChildEdit[]>([]);
@@ -165,6 +169,11 @@ export function MonitorDetail({
     { value: 'cold', label: t('admin.monitors.boardCold') },
   ], effectiveBoard);
 
+  const proxyOptions = withCurrentOption([
+    { value: '', label: t('admin.monitors.proxyDirect') },
+    ...proxyProfiles.map(profile => ({ value: profile.id, label: `${profile.name} (${profile.url_masked})` })),
+  ], isEditing ? editFields.proxy_profile : root?.proxy_profile);
+
   const toChildEdits = (items: MonitorConfig[]): ChildEdit[] =>
     items.map(c => ({
       _original: c,
@@ -185,6 +194,7 @@ export function MonitorDetail({
       base_url: root?.base_url || '',
       api_key: '',
       proxy: root?.proxy || '',
+      proxy_profile: root?.proxy_profile || '',
       category: root?.category || '',
       sponsor_level: root?.sponsor_level || '',
       board: root?.board || 'hot',
@@ -198,6 +208,7 @@ export function MonitorDetail({
       auto_cold_exempt: root?.auto_cold_exempt ?? false,
       auto_move_exempt: root?.auto_move_exempt ?? false,
       clear_api_key: false,
+      clear_proxy: false,
     });
     setEditChildren(toChildEdits(children));
     setPriceMinRaw(root?.price_min != null ? String(root.price_min) : '');
@@ -471,12 +482,31 @@ export function MonitorDetail({
               if (v) updateField('clear_api_key', false);
             }}
           />
-          <EditableField
-            label={t('admin.monitors.field.proxy')}
-            value={isEditing ? editFields.proxy : root?.proxy}
+          <EditableSelectField
+            label={t('admin.monitors.field.proxyProfile')}
+            value={isEditing ? editFields.proxy_profile : root?.proxy_profile}
             editing={isEditing}
-            onChange={v => updateField('proxy', v)}
+            onChange={v => {
+              updateField('proxy_profile', v);
+              updateField('clear_proxy', !v && !!(root?.proxy_profile || root?.proxy_masked));
+            }}
+            options={proxyOptions}
           />
+          {!isEditing && root?.proxy_masked && !root?.proxy_profile && (
+            <Field label={t('admin.monitors.field.proxy')} value={root.proxy_masked} />
+          )}
+          {isEditing && root?.proxy_masked && !root?.proxy_profile && (
+            <div className="flex items-center gap-2 text-xs text-muted">
+              <span>{t('admin.monitors.legacyProxy', { value: root.proxy_masked })}</span>
+              <button
+                type="button"
+                onClick={() => updateField('clear_proxy', !editFields.clear_proxy)}
+                className={editFields.clear_proxy ? 'text-warning hover:underline' : 'text-danger hover:underline'}
+              >
+                {editFields.clear_proxy ? t('admin.monitors.keepProxy') : t('admin.monitors.clearProxy')}
+              </button>
+            </div>
+          )}
           <EditableField
             label={t('admin.monitors.field.listedSince')}
             value={isEditing ? editFields.listed_since : root?.listed_since}

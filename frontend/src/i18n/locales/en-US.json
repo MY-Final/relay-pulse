@@ -643,6 +643,7 @@
     "tabs": {
       "submissions": "Submissions",
       "monitors": "Monitors",
+      "proxies": "Proxies",
       "changes": "Changes"
     },
     "submissions": {
@@ -708,6 +709,10 @@
       "statusDisabled": "Disabled",
       "statusHidden": "Hidden",
       "templateNone": "No template",
+      "proxyDirect": "Direct (no proxy)",
+      "legacyProxy": "Legacy proxy: {{value}}",
+      "keepProxy": "Keep",
+      "clearProxy": "Clear proxy",
       "sponsorLevels": {
         "none": "None",
         "public": "Public",
@@ -764,6 +769,7 @@
         "model": "Model",
         "apiKey": "API Key",
         "proxy": "Proxy",
+        "proxyProfile": "Proxy profile",
         "listedSince": "Listed Since",
         "priceMin": "Min Price Ratio",
         "priceMax": "Max Price Ratio",
@@ -785,6 +791,24 @@
         "requiredFields": "Provider, Service, and Channel are required",
         "create": "Create"
       }
+    },
+    "proxies": {
+      "title": "Proxy profiles",
+      "description": "Proxy URLs are encrypted at rest. Choose a profile for a monitor, or use a direct connection.",
+      "addTitle": "Add proxy",
+      "name": "Name",
+      "namePlaceholder": "e.g. Japan egress",
+      "url": "Proxy URL",
+      "urlPlaceholder": "http://user:pass@host:port or socks5://host:port",
+      "add": "Add",
+      "save": "Save",
+      "edit": "Edit",
+      "delete": "Delete",
+      "loading": "Loading proxy profiles...",
+      "empty": "No proxy profiles yet",
+      "confirmDelete": "Delete proxy “{{name}}”?",
+      "saveFailed": "Failed to save proxy profile",
+      "deleteFailed": "Failed to delete proxy profile"
     },
     "changes": {
       "empty": "No change requests",

@@ -72,6 +72,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 	// monitors.d/ 目录（PSC 级 monitor 文件）
 	monitorsDirPath := filepath.Clean(filepath.Join(dir, MonitorsDirName))
 	monitorsDirPrefix := monitorsDirPath + string(filepath.Separator)
+	proxyProfilesPath := filepath.Clean(filepath.Join(dir, ProxyProfilesFileName))
 	if info, err := os.Stat(monitorsDirPath); err == nil && info.IsDir() {
 		if err := w.addWatch(monitorsDirPath); err != nil {
 			return err
@@ -79,7 +80,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 	}
 
 	logger.Info("config", "开始监听配置文件",
-		"file", w.filename, "dir", dir, "monitors_dir", MonitorsDirName)
+		"file", w.filename, "dir", dir, "monitors_dir", MonitorsDirName, "proxy_profiles", ProxyProfilesFileName)
 
 	go func() {
 		var debounceTimer *time.Timer
@@ -98,6 +99,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 				eventPath := filepath.Clean(event.Name)
 				isConfigFile := eventPath == targetFile
 				isTemplateFile := strings.HasPrefix(eventPath, templatesDirPrefix)
+				isProxyProfilesFile := eventPath == proxyProfilesPath
 
 				// monitors.d/ 目录本身被创建/删除，或其中的 .yaml 文件变更
 				isMonitorsDirSelf := eventPath == monitorsDirPath
@@ -111,7 +113,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 				// 重载，之后这里读到的就是新名字。
 				isRevokedKeyFile := eventPath == w.currentRevokedKeyPath(dir)
 
-				if !isConfigFile && !isTemplateFile && !isRevokedKeyFile &&
+				if !isConfigFile && !isTemplateFile && !isProxyProfilesFile && !isRevokedKeyFile &&
 					!isMonitorsDirSelf && !isMonitorDFile {
 					continue
 				}

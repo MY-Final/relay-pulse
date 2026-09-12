@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { apiGet } from '../utils/apiClient';
-import type { ModelVendorInfo, OnboardingMeta } from '../types/onboarding';
+import type { ModelVendorInfo } from '../types/onboarding';
 
 /**
  * 拉取模型厂商受控词表（后端 internal/modelvendor 是唯一真相源，前端不自建一份）。
  *
- * 走公开的 /api/onboarding/meta：该端点无需鉴权，且词表本就随它下发给收录表单。
+ * 走独立的 /api/model-vendors：它不依赖 onboarding 开关，管理员始终能编辑厂商。
  * 模块级缓存一份，避免后台里每开一个详情页都重拉。
  *
  * 拉不到时返回空数组——调用方应据此降级成「只保留当前值」的下拉，而不是把字段变成不可编辑：
@@ -17,9 +17,9 @@ let inflight: Promise<ModelVendorInfo[]> | null = null;
 function fetchVendors(): Promise<ModelVendorInfo[]> {
   if (cachedVendors) return Promise.resolve(cachedVendors);
   if (!inflight) {
-    inflight = apiGet<OnboardingMeta>('/api/onboarding/meta')
-      .then((meta) => {
-        cachedVendors = meta.model_vendors ?? [];
+    inflight = apiGet<{ model_vendors?: ModelVendorInfo[] }>('/api/model-vendors')
+      .then((resp) => {
+        cachedVendors = resp.model_vendors ?? [];
         return cachedVendors;
       })
       .catch(() => [])

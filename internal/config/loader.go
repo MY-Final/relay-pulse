@@ -63,6 +63,13 @@ func (l *Loader) Load(filename string) (*AppConfig, error) {
 	if err := cfg.decryptMonitorAPIKeys(cfg.Monitors); err != nil {
 		return nil, fmt.Errorf("解密监测配置失败: %w", err)
 	}
+	proxyURLs, err := LoadProxyProfileURLs(configDir, cfg.Admin.EncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("加载代理配置失败: %w", err)
+	}
+	if err := ResolveMonitorProxyProfiles(cfg.Monitors, proxyURLs); err != nil {
+		return nil, fmt.Errorf("解析监测代理配置失败: %w", err)
+	}
 
 	// 验证配置
 	if err := cfg.validate(); err != nil {

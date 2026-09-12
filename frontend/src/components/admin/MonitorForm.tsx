@@ -4,9 +4,11 @@ import { X } from 'lucide-react';
 import type { MonitorConfig, MonitorFile } from '../../types/monitor';
 import { FormField, SelectField, CheckboxField } from './FormControls';
 import { buildVendorOptions, useModelVendors } from '../../hooks/useModelVendors';
+import type { ProxyProfile } from '../../types/proxy';
 
 interface MonitorFormProps {
   fetchTemplates: () => Promise<string[]>;
+  proxyProfiles: ProxyProfile[];
   onSave: (file: MonitorFile) => Promise<void>;
   onCancel: () => void;
 }
@@ -30,6 +32,7 @@ const EMPTY_CONFIG: MonitorConfig = {
   template: '',
   base_url: '',
   api_key: '',
+  proxy_profile: '',
   category: 'commercial',
   sponsor_level: '',
   board: 'hot',
@@ -45,7 +48,7 @@ const EMPTY_CONFIG: MonitorConfig = {
 
 const EMPTY_CHILD: ChildDraft = { model: '', model_vendor: '', template: '', base_url: '', api_key: '' };
 
-export function MonitorForm({ fetchTemplates, onSave, onCancel }: MonitorFormProps) {
+export function MonitorForm({ fetchTemplates, proxyProfiles, onSave, onCancel }: MonitorFormProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<MonitorConfig>({ ...EMPTY_CONFIG });
   const [children, setChildren] = useState<ChildDraft[]>([]);
@@ -215,6 +218,15 @@ export function MonitorForm({ fetchTemplates, onSave, onCancel }: MonitorFormPro
             value={config.api_key || ''}
             onChange={v => updateField('api_key', v)}
             type="password"
+          />
+          <SelectField
+            label={t('admin.monitors.field.proxyProfile')}
+            value={config.proxy_profile || ''}
+            onChange={v => updateField('proxy_profile', v)}
+            options={[
+              { value: '', label: t('admin.monitors.proxyDirect') },
+              ...proxyProfiles.map(profile => ({ value: profile.id, label: `${profile.name} (${profile.url_masked})` })),
+            ]}
           />
           <FormField
             label={t('admin.monitors.field.interval')}

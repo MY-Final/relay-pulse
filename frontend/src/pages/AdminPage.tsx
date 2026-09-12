@@ -12,9 +12,11 @@ import { MonitorList } from '../components/admin/MonitorList';
 import { MonitorDetail } from '../components/admin/MonitorDetail';
 import { MonitorForm } from '../components/admin/MonitorForm';
 import { ChangeRequestList } from '../components/admin/ChangeRequestList';
+import { ProxyProfiles } from '../components/admin/ProxyProfiles';
+import { useProxyAdmin } from '../hooks/useProxyAdmin';
 import { APP_NAME } from '../constants';
 
-type AdminTab = 'submissions' | 'monitors' | 'changes';
+type AdminTab = 'submissions' | 'monitors' | 'proxies' | 'changes';
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -34,6 +36,7 @@ export default function AdminPage() {
   } = useAdmin();
 
   const monitor = useMonitorAdmin(isAuthenticated);
+  const proxyAdmin = useProxyAdmin(isAuthenticated);
   const changeAdmin = useChangeAdmin(isAuthenticated);
 
   const handleTabChange = (tab: AdminTab) => {
@@ -89,6 +92,11 @@ export default function AdminPage() {
                   label={t('admin.tabs.monitors')}
                 />
                 <TabButton
+                  active={activeTab === 'proxies'}
+                  onClick={() => handleTabChange('proxies')}
+                  label={t('admin.tabs.proxies')}
+                />
+                <TabButton
                   active={activeTab === 'changes'}
                   onClick={() => handleTabChange('changes')}
                   label={t('admin.tabs.changes')}
@@ -96,9 +104,9 @@ export default function AdminPage() {
               </nav>
 
               {/* 错误提示 */}
-              {(submissionError || monitor.error || changeAdmin.error) && (
+              {(submissionError || monitor.error || proxyAdmin.error || changeAdmin.error) && (
                 <div className="p-4 bg-danger/10 border border-danger/20 rounded-lg">
-                  <p className="text-danger font-medium">{submissionError || monitor.error || changeAdmin.error}</p>
+                  <p className="text-danger font-medium">{submissionError || monitor.error || proxyAdmin.error || changeAdmin.error}</p>
                 </div>
               )}
 
@@ -139,6 +147,7 @@ export default function AdminPage() {
                 showCreateForm ? (
                   <MonitorForm
                     fetchTemplates={monitor.fetchTemplates}
+                    proxyProfiles={proxyAdmin.proxies}
                     onSave={async (file) => {
                       await monitor.createMonitor(file);
                       setShowCreateForm(false);
@@ -150,6 +159,7 @@ export default function AdminPage() {
                 ) : monitor.selectedMonitor && monitor.selectedKey ? (
                   <MonitorDetail
                     fetchTemplates={monitor.fetchTemplates}
+                    proxyProfiles={proxyAdmin.proxies}
                     monitorFile={monitor.selectedMonitor}
                     monitorKey={monitor.selectedKey}
                     onBack={() => {
@@ -207,6 +217,16 @@ export default function AdminPage() {
                     />
                   </div>
                 )
+              )}
+              {/* 代理配置 Tab */}
+              {activeTab === 'proxies' && (
+                <ProxyProfiles
+                  proxies={proxyAdmin.proxies}
+                  isLoading={proxyAdmin.isLoading}
+                  onCreate={proxyAdmin.createProxy}
+                  onUpdate={proxyAdmin.updateProxy}
+                  onDelete={proxyAdmin.deleteProxy}
+                />
               )}
               {/* 变更请求 Tab */}
               {activeTab === 'changes' && (

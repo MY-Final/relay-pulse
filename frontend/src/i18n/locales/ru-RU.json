@@ -643,6 +643,7 @@
     "tabs": {
       "submissions": "Заявки",
       "monitors": "Мониторы",
+      "proxies": "Прокси",
       "changes": "Изменения"
     },
     "submissions": {
@@ -708,6 +709,10 @@
       "statusDisabled": "Отключён",
       "statusHidden": "Скрытый",
       "templateNone": "Без шаблона",
+      "proxyDirect": "Напрямую (без прокси)",
+      "legacyProxy": "Старый прокси: {{value}}",
+      "keepProxy": "Оставить",
+      "clearProxy": "Очистить прокси",
       "sponsorLevels": {
         "none": "Нет",
         "public": "Публичный",
@@ -764,6 +769,7 @@
         "model": "Модель",
         "apiKey": "API-ключ",
         "proxy": "Прокси",
+        "proxyProfile": "Профиль прокси",
         "listedSince": "Дата добавления",
         "priceMin": "Мин. ценовой коэффициент",
         "priceMax": "Макс. ценовой коэффициент",
@@ -785,6 +791,24 @@
         "requiredFields": "Провайдер, сервис и канал обязательны",
         "create": "Создать"
       }
+    },
+    "proxies": {
+      "title": "Профили прокси",
+      "description": "Адреса прокси хранятся в зашифрованном виде. Выберите профиль для канала или используйте прямое подключение.",
+      "addTitle": "Добавить прокси",
+      "name": "Название",
+      "namePlaceholder": "Например: выход через Японию",
+      "url": "Адрес прокси",
+      "urlPlaceholder": "http://user:pass@host:port или socks5://host:port",
+      "add": "Добавить",
+      "save": "Сохранить",
+      "edit": "Изменить",
+      "delete": "Удалить",
+      "loading": "Загрузка прокси...",
+      "empty": "Профилей прокси пока нет",
+      "confirmDelete": "Удалить прокси «{{name}}»?",
+      "saveFailed": "Не удалось сохранить прокси",
+      "deleteFailed": "Не удалось удалить прокси"
     },
     "changes": {
       "empty": "Нет запросов на изменение",

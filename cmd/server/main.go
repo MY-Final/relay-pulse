@@ -289,14 +289,18 @@ func main() {
 		logger.Warn("main", "创建 monitors.d 目录失败", "error", err)
 	}
 	monitorStore := config.NewMonitorStore(monitorsDirPath)
+	var adminKeyCipher *apikey.KeyCipher
 	if cfg.Admin.EncryptionKey != "" {
 		cipher, err := apikey.NewKeyCipher(cfg.Admin.EncryptionKey)
 		if err != nil {
 			logger.Error("main", "创建管理员监测 Key 加密器失败", "error", err)
 			os.Exit(1)
 		}
+		adminKeyCipher = cipher
 		monitorStore.SetKeyCipher(cipher)
 	}
+	proxyStorePath := filepath.Join(resolveConfigDir(configFile), config.ProxyProfilesFileName)
+	proxyStore := config.NewProxyProfileStore(proxyStorePath, adminKeyCipher)
 
 	// 创建API服务器
 	httpPort := os.Getenv("PORT")
@@ -308,13 +312,9 @@ func main() {
 	reloadRecorder := reloadstatus.New()
 	server := api.NewServer(store, cfg, httpPort, autoMover, rpdiagClient, reloadRecorder)
 	server.GetHandler().SetMonitorStore(monitorStore)
-	if cfg.Admin.EncryptionKey != "" {
-		cipher, err := apikey.NewKeyCipher(cfg.Admin.EncryptionKey)
-		if err != nil {
-			logger.Error("main", "创建管理员监测 Key 加密器失败", "error", err)
-			os.Exit(1)
-		}
-		server.GetHandler().SetAdminKeyCipher(cipher)
+	server.GetHandler().SetProxyProfileStore(proxyStore)
+	if adminKeyCipher != nil {
+		server.GetHandler().SetAdminKeyCipher(adminKeyCipher)
 	}
 
 	// runtimeMu 保护热更新回调与关闭序列之间对 mutable 组件实例的并发访问

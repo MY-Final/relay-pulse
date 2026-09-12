@@ -58,6 +58,9 @@ export interface MonitorConfig {
   api_key_masked?: string;
   clear_api_key?: boolean;
   proxy?: string;
+  proxy_profile?: string;
+  proxy_masked?: string;
+  clear_proxy?: boolean;
   method?: string;
   headers?: Record<string, string>;
   body?: string;
