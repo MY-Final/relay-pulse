@@ -600,7 +600,7 @@
     "meta": {
       "title": "管理ダッシュボード"
     },
-    "title": "掲載管理ダッシュボード",
+    "title": "プライベート監視管理画面",
     "logout": "ログアウト",
     "auth": {
       "title": "管理者認証",
@@ -641,10 +641,8 @@
       "next": "次のページ"
     },
     "tabs": {
-      "submissions": "申請管理",
       "monitors": "チャネル管理",
-      "proxies": "プロキシ設定",
-      "changes": "変更リクエスト"
+      "proxies": "プロキシ設定"
     },
     "submissions": {
       "searchPlaceholder": "申請番号で検索（先頭8文字または完全なUUID）"

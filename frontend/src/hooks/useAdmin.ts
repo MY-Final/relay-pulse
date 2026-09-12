@@ -13,7 +13,12 @@ import type {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function useAdmin() {
+interface UseAdminOptions {
+  /** 私人部署后台不需要加载申请列表，但保留默认值兼容其它调用方。 */
+  manageSubmissions?: boolean;
+}
+
+export function useAdmin({ manageSubmissions = true }: UseAdminOptions = {}) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
@@ -102,7 +107,7 @@ export function useAdmin() {
 
   // Fetch list
   const fetchList = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !manageSubmissions) return;
     setIsLoading(true);
     setError(null);
 
@@ -130,13 +135,13 @@ export function useAdmin() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, statusFilter, page, debouncedSearchQuery, authHeaders]);
+  }, [isAuthenticated, manageSubmissions, statusFilter, page, debouncedSearchQuery, authHeaders]);
 
   // Auto-fetch on filter/page change
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 鉴权/筛选变更即取数：fetchList 在 await 前同步置 loading/清错误为有意
-    if (isAuthenticated) fetchList();
-  }, [isAuthenticated, fetchList]);
+    if (isAuthenticated && manageSubmissions) fetchList();
+  }, [isAuthenticated, manageSubmissions, fetchList]);
 
   // 拉取模板列表（供 SubmissionDetail 的模板下拉使用）
   //

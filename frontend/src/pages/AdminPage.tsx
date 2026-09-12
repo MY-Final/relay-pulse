@@ -4,50 +4,35 @@ import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { useAdmin } from '../hooks/useAdmin';
 import { useMonitorAdmin } from '../hooks/useMonitorAdmin';
-import { useChangeAdmin } from '../hooks/useChangeAdmin';
 import { AdminAuth } from '../components/admin/AdminAuth';
-import { SubmissionList } from '../components/admin/SubmissionList';
-import { SubmissionDetail } from '../components/admin/SubmissionDetail';
 import { MonitorList } from '../components/admin/MonitorList';
 import { MonitorDetail } from '../components/admin/MonitorDetail';
 import { MonitorForm } from '../components/admin/MonitorForm';
-import { ChangeRequestList } from '../components/admin/ChangeRequestList';
 import { ProxyProfiles } from '../components/admin/ProxyProfiles';
 import { useProxyAdmin } from '../hooks/useProxyAdmin';
 import { APP_NAME } from '../constants';
 
-type AdminTab = 'submissions' | 'monitors' | 'proxies' | 'changes';
+type AdminTab = 'monitors' | 'proxies';
 
 export default function AdminPage() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
+  const [activeTab, setActiveTab] = useState<AdminTab>('monitors');
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const {
     isAuthenticated, isCheckingAuth, login, logout,
-    submissions, total, statusFilter, setStatusFilter,
-    page, setPage, isLoading, searchQuery, setSearchQuery,
-    selectedSubmission,
-    fetchDetail, fetchTemplates, updateSubmission, testSubmission, rejectSubmission, deleteSubmission, publishSubmission,
-    detailLoadingId, cancelDetail,
-    setSelectedSubmission,
-    error: submissionError,
-    suggestedChannel,
-  } = useAdmin();
+    error: adminError,
+  } = useAdmin({ manageSubmissions: false });
 
   const monitor = useMonitorAdmin(isAuthenticated);
   const proxyAdmin = useProxyAdmin(isAuthenticated);
-  const changeAdmin = useChangeAdmin(isAuthenticated);
 
   const handleTabChange = (tab: AdminTab) => {
-    cancelDetail();
     monitor.cancelDetail();
     setActiveTab(tab);
     setShowCreateForm(false);
     monitor.setSelectedMonitor(null);
     monitor.setSelectedKey(null);
-    setSelectedSubmission(null);
-    changeAdmin.setSelectedChange(null);
   };
 
   return (
@@ -64,7 +49,7 @@ export default function AdminPage() {
           ) : !isAuthenticated ? (
             <AdminAuth
               onSubmit={login}
-              error={submissionError}
+              error={adminError}
             />
           ) : (
             <>
@@ -82,11 +67,6 @@ export default function AdminPage() {
               {/* Tab 导航 */}
               <nav className="flex gap-1 border-b border-default">
                 <TabButton
-                  active={activeTab === 'submissions'}
-                  onClick={() => handleTabChange('submissions')}
-                  label={t('admin.tabs.submissions')}
-                />
-                <TabButton
                   active={activeTab === 'monitors'}
                   onClick={() => handleTabChange('monitors')}
                   label={t('admin.tabs.monitors')}
@@ -96,50 +76,13 @@ export default function AdminPage() {
                   onClick={() => handleTabChange('proxies')}
                   label={t('admin.tabs.proxies')}
                 />
-                <TabButton
-                  active={activeTab === 'changes'}
-                  onClick={() => handleTabChange('changes')}
-                  label={t('admin.tabs.changes')}
-                />
               </nav>
 
               {/* 错误提示 */}
-              {(submissionError || monitor.error || proxyAdmin.error || changeAdmin.error) && (
+              {(adminError || monitor.error || proxyAdmin.error) && (
                 <div className="p-4 bg-danger/10 border border-danger/20 rounded-lg">
-                  <p className="text-danger font-medium">{submissionError || monitor.error || proxyAdmin.error || changeAdmin.error}</p>
+                  <p className="text-danger font-medium">{adminError || monitor.error || proxyAdmin.error}</p>
                 </div>
-              )}
-
-              {/* 申请管理 Tab */}
-              {activeTab === 'submissions' && (
-                detailLoadingId && !selectedSubmission ? (
-                  <DetailLoading />
-                ) : selectedSubmission ? (
-                  <SubmissionDetail
-                    submission={selectedSubmission}
-                    onSave={(updates) => updateSubmission(selectedSubmission.public_id, updates)}
-                    onTest={() => testSubmission(selectedSubmission.public_id)}
-                    fetchTemplates={fetchTemplates}
-                    onReject={(note) => rejectSubmission(selectedSubmission.public_id, note)}
-                    onDelete={() => deleteSubmission(selectedSubmission.public_id)}
-                    onPublish={(board) => publishSubmission(selectedSubmission.public_id, board)}
-                    suggestedChannel={suggestedChannel}
-                    onBack={() => { cancelDetail(); setSelectedSubmission(null); }}
-                  />
-                ) : (
-                  <SubmissionList
-                    submissions={submissions}
-                    total={total}
-                    statusFilter={statusFilter}
-                    setStatusFilter={setStatusFilter}
-                    page={page}
-                    setPage={setPage}
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    onSelect={(sub) => fetchDetail(sub.public_id)}
-                    isLoading={isLoading}
-                  />
-                )
               )}
 
               {/* 通道管理 Tab */}
@@ -226,23 +169,6 @@ export default function AdminPage() {
                   onCreate={proxyAdmin.createProxy}
                   onUpdate={proxyAdmin.updateProxy}
                   onDelete={proxyAdmin.deleteProxy}
-                />
-              )}
-              {/* 变更请求 Tab */}
-              {activeTab === 'changes' && (
-                <ChangeRequestList
-                  changes={changeAdmin.changes}
-                  isLoading={changeAdmin.isLoading}
-                  statusFilter={changeAdmin.statusFilter}
-                  setStatusFilter={changeAdmin.setStatusFilter}
-                  onUpdate={(id, updates) => changeAdmin.updateChange(id, updates)}
-                  onApprove={(id) => changeAdmin.approveChange(id)}
-                  onReject={(id, note) => changeAdmin.rejectChange(id, note)}
-                  onApply={(id) => changeAdmin.applyChange(id)}
-                  onDelete={(id) => changeAdmin.deleteChange(id)}
-                  pendingActions={changeAdmin.pendingActions}
-                  error={changeAdmin.error}
-                  featureDisabled={changeAdmin.featureDisabled}
                 />
               )}
             </>

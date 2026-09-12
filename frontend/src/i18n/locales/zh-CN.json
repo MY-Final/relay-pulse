@@ -600,7 +600,7 @@
     "meta": {
       "title": "管理后台"
     },
-    "title": "收录管理后台",
+    "title": "私人监测后台",
     "logout": "退出",
     "auth": {
       "title": "管理员认证",
@@ -641,10 +641,8 @@
       "next": "下一页"
     },
     "tabs": {
-      "submissions": "申请管理",
       "monitors": "通道管理",
-      "proxies": "代理配置",
-      "changes": "变更请求"
+      "proxies": "代理配置"
     },
     "submissions": {
       "searchPlaceholder": "按申请编号搜索（前 8 位或完整 UUID）"

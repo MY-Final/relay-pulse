@@ -600,7 +600,7 @@
     "meta": {
       "title": "Admin Dashboard"
     },
-    "title": "Listing Admin Dashboard",
+    "title": "Private Monitoring Admin",
     "logout": "Logout",
     "auth": {
       "title": "Admin Authentication",
@@ -641,10 +641,8 @@
       "next": "Next"
     },
     "tabs": {
-      "submissions": "Submissions",
       "monitors": "Monitors",
-      "proxies": "Proxies",
-      "changes": "Changes"
+      "proxies": "Proxies"
     },
     "submissions": {
       "searchPlaceholder": "Search by application ID (first 8 chars or full UUID)"
